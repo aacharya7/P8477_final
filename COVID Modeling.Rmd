@@ -1,0 +1,300 @@
+---
+title: "COVID Modeling"
+author: "Anna Huang"
+date: "3/29/2021"
+output: pdf_document
+---
+**Model without Risk Structuring WITH Sinosoidal Forcing**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+library(deSolve)
+
+#Documented cases only 
+COVID=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+    
+    # rate of change for DOCUMENTED cases
+    dS =  -S/N * (beta.I*(1+beta1*cos(omega*times)) * I + beta.H * H) + mu*N - mu*S;
+    dE = S/N * (beta.I*(1+beta1*cos(omega*times)) * I + beta.H * H)  -  alpha*E -mu*E;
+    dI = alpha*E - I*( (gamma_h*theta1*(1-delta2)) + (gamma_f*(1-theta1)*(1-delta2)) + (gamma_i*(1-theta1)*delta2) ) - mu*I;
+    dH = gamma_h*theta1*(1-delta2)*I - H*( (gamma_d*delta1)  +  (gamma_r*(1-delta1)) ) - mu*H;
+    dR = gamma_r*(1-delta1)*H + (gamma_f*(1-theta1)*(1-delta2))*I - mu*R;
+    dDead = (gamma_i*(1-theta1)*delta2)*I + H*(gamma_d*delta1) - mu*Dead;
+    dcumInci = alpha * E; # cumulative incidence
+    
+    # return the rate of change
+    list(c(dS,dE, dI,dH, dR, dDead, dcumInci))
+  }) # end with(as.list...)
+}
+
+N=8500000;
+I0=21;
+E0=0;
+cumInci0=E0+I0;
+H0=R0=Dead0=0;
+S0=N-I0-E0;
+state=c(S=S0,E=E0,I=I0,H=H0,R=R0,Dead=Dead0,cumInci=cumInci0)
+
+## parameters for the COVID outbreak 2019 for DOCUMENTED cases with no intervention
+# no intervention
+alpha = 1/6.4 #latent period
+gamma_f = 1/20.5 #from infected to recovered without hospitalization
+gamma_i = 1/16 #from infection to death
+gamma_h = 1/5.8 #from infected to hospitalized
+gamma_d = 1/(16-5.8) #from hospitalization to death
+gamma_r = 1/7 #rate of recovery
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+omega = 2*pi/365 #sinusoidal forcing
+
+theta1 = 0.21 #proportion of infected who are hospitalized
+delta1 = 0.26 #case fatality rate for hospitalized infections
+delta2 = 0.0139 #case fatality rate for non-hospitalized infections
+beta1 = 0.55 #peak force of infection
+beta.I = 0.4 #transmission in the community
+beta.H = 1/9.5 #transmission rate in hospital
+times=seq(1,365,by=1) # run for 10 years
+
+docparms.NoCtrl= c(alpha=alpha,
+                   beta.I=beta.I,
+                   beta.H=beta.H,
+                   beta1=beta1,
+                   gamma_f=gamma_f,
+                   gamma_i=gamma_i,
+                   mu=mu,
+                   gamma_h=gamma_h,
+                   gamma_d=gamma_d,
+                   gamma_r=gamma_r,
+                   theta1=theta1,
+                   delta1=delta1,
+                   delta2=delta2,
+                   omega=omega)
+
+COVID.sim=ode(y=state,times=times,func=COVID,parms=docparms.NoCtrl);
+inci=COVID.sim[seq(7,nrow(COVID.sim),by=7),'cumInci']-c(0,COVID.sim[seq(7,nrow(COVID.sim)-7,by=7),'cumInci']) #weekly incidence
+death_week=COVID.sim[seq(7,nrow(COVID.sim),by=7),'Dead']-c(0,COVID.sim[seq(7,nrow(COVID.sim)-7,by=7),'Dead']) #weekly death incidence 
+
+i.sim=COVID.sim[,'I']/N  # %I
+s.sim=COVID.sim[,'S']/N #%S
+d.sim=COVID.sim[,'Dead']/N # %Dead
+all.sim=cbind(i.sim,s.sim,d.sim)
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+#Plot 
+par(mfrow=c(2,1),mar=c(3,3,1,1),mgp=c(1.8,.5,0))
+matplot(COVID.sim[,'time'], COVID.sim[,c('I','Dead')],type='l', 
+        lwd=1,col=c('blue','red'),lty=1, main='Infection Prevalence Over 1 Year', cex.main=1,
+        ylab='Number of People',xlab='Time (days)')
+legend('topright',c('Infected','Dead'),col=c('blue','red'),
+       lty=1, cex=1, lwd=1, bty='n')
+
+matplot(all.sim[,c('i.sim','s.sim','d.sim')],type='l', 
+     lwd=1,col=c('blue','red','green'),lty=1, main='% of Population Affected by COVID Over 1 Year', cex.main=1,
+     ylab='% of N',xlab='Time (days)')
+legend('topright',c('%I','%S','%Dead'),col=c('blue','red','green'),
+       lty=1, cex=1, lwd=1, bty='n')
+
+par(mfrow=c(3,1),mar=c(3,3,1,1),mgp=c(1.8,.5,0))
+plot(s.sim,ylab='%S',xlab='Days',type='l',lwd=1, main="%S of COVID Over 1 Year",col='blue')
+plot(i.sim,ylab='%I',xlab='Days',type='l',lwd=1, main="%I of COVID Over 1 Year",col='green')
+plot(d.sim,ylab='%Dead',xlab='Days',type='l',lwd=1, main="%Dead of COVID Over 1 Year",col='red')
+```
+
+**Risk Structured Model With Seasonality Forcing**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+COVID_risk=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+    
+    # rate of change for DOCUMENTED cases
+    dSD =  -SD/N * (beta.IDD*(1+beta1*cos(omega*times))*ID + beta.IDU*(1+beta1*cos(omega*times))*ID + beta.H*HD + beta.H*HD ) + mu*ND - mu*SD;
+    dED = SD/N * (beta.IDD*(1+beta1*cos(omega*times))*ID + beta.IDU*(1+beta1*cos(omega*times))*ID + beta.H*HD + beta.H*HD ) - alpha*ED -mu*ED;
+    dID = alpha*ED - ID*( (gamma_h*theta1*(1-delta2)) + (gamma_f*(1-theta1)*(1-delta2)) + (gamma_i*(1-theta1)*delta2) ) - mu*ID;
+    dHD = gamma_h*theta1*(1-delta2)*ID - HD*( (gamma_d*delta1)  +  (gamma_r*(1-delta1)) ) - mu*HD;
+    dRD = gamma_r*(1-delta1)*HD + (gamma_f*(1-theta1)*(1-delta2))*ID -mu*RD;
+    dDeadD = (gamma_i*(1-theta1)*delta2)*ID+ HD*(gamma_d*delta1) -mu*DeadD;
+    dcumInciD = alpha * ED; # cumulative incidence
+    
+    # rate of change for UNDOCUMENTED cases
+    dSU =  -SU/N * (beta.IUU*(1+beta1*cos(omega*times))*IU + beta.IUD*(1+beta1*cos(omega*times))*IU) + mu*NU - mu*SU;
+    dEU = SU/N * (beta.IUU*(1+beta1*cos(omega*times))*IU + beta.IUD*(1+beta1*cos(omega*times))*IU)  -  alpha*EU -mu*EU;
+    dIU = alpha*EU - IU*( (gamma_f*(1-delta2)) + (gamma_i*delta2) ) - mu*IU;
+    dRU = (gamma_f*(1-delta2))*IU + mu*RU ;
+    dDeadU = (gamma_i*delta2)*IU - mu*DeadU;
+    dcumInciU = alpha * EU; # cumulative incidence
+    
+    # return the rate of change
+    list(c(dSD, dSU, dED, dEU, dID, dIU, dHD, dRD, dRU, dDeadD, dDeadU, dcumInciD, dcumInciU))
+  }) # end with(as.list...)
+}
+
+N=8500000;
+ND=N*(1-0.86);
+ID_0=21;
+ED_0=0;
+SD_0=ND-ID_0-ED_0;
+cumInciD_0=ED_0+ID_0;
+HD_0=RD_0=DeadD_0=0;
+
+NU=N*0.86;
+IU_0=21;
+EU_0=0;
+SU_0=NU-IU_0-EU_0;
+cumInciU_0=EU_0+IU_0;
+RU_0=DeadU_0=0;
+
+state_risk=c(SD=SD_0, SU=SU_0, ED=ED_0, EU=EU_0, ID=ID_0, IU=IU_0, 
+             HD=HD_0,RD=RD_0, RU=RU_0, DeadD=DeadD_0, DeadU=DeadU_0, cumInciD=cumInciD_0, cumInciU=cumInciU_0)
+
+## parameters for the COVID outbreak 2019 for risk structured model 
+#intervention
+beta.IDDi = beta.IDUi = 0.03 #transmission from documented 
+beta.IUUi = beta.IUDi = 0.1 #transmission in community from undocumented
+#no intervention
+beta.IDD = beta.IDU = 0.03 #transmission from documented 
+beta.IUU = beta.IUD = 0.4 #transmission in community from undocumented
+
+beta.H = 1/9.5 #transmission rate in hospital
+beta1 = 1.12 #peak infection
+alpha = 1/6.4 #latent period
+gamma_f = 1/20.5 #from infected to recovered without hospitalization
+gamma_i = 1/16 #from infection to death
+gamma_h = 1/5.8 #from infected to hospitalized
+gamma_d = 1/(16-5.8) #from hospitalization to death
+gamma_r = 1/7 #rate of recovery
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta1 = 0.21 #proportion of infected who are hospitalized
+delta1 = 0.26 #case fatality rate for hospitalized infections
+delta2 = 0.0139 #case fatality rate for non-hospitalized infections
+omega = 2*pi/365 #sinusoidal forcing
+
+risk.parms_int= c(alpha=alpha,
+                   beta.IDD=beta.IDDi,
+                   beta1=beta1,
+                   beta.IUU = beta.IUUi,
+                   beta.IUD = beta.IUDi,
+                   beta.IDU = beta.IDUi,
+                   beta.H=beta.H,
+                   gamma_f=gamma_f,
+                   gamma_i=gamma_i,
+                   mu=mu,
+                   gamma_h=gamma_h,
+                   gamma_d=gamma_d,
+                   gamma_r=gamma_r,
+                   theta1=theta1,
+                   delta1=delta1,
+                   delta2=delta2,
+                   omega=omega)
+
+risk.parms_noint= c(alpha=alpha,
+                   beta.IDD=beta.IDD,
+                   beta1=beta1,
+                   beta.IUU = beta.IUU,
+                   beta.IUD = beta.IUD,
+                   beta.IDU = beta.IDU,
+                   beta.H=beta.H,
+                   gamma_f=gamma_f,
+                   gamma_i=gamma_i,
+                   mu=mu,
+                   gamma_h=gamma_h,
+                   gamma_d=gamma_d,
+                   gamma_r=gamma_r,
+                   theta1=theta1,
+                   delta1=delta1,
+                   delta2=delta2,
+                   omega=omega)
+
+#run for 8 weeks without social distancing
+times_noint =seq(0,4*7,by=1)
+COVID_risk.sim_noint=ode(y=state_risk,times=times_noint,func=COVID_risk,parms=risk.parms_noint)
+#run for 8 weeks and after with social distancing
+times_int=seq(4*7,365*100,by=1)
+state2=c(SD=tail(COVID_risk.sim_noint[,'SD'],1),SU=tail(COVID_risk.sim_noint[,'SU'],1),
+         ED=tail(COVID_risk.sim_noint[,'ED'],1),EU=tail(COVID_risk.sim_noint[,'EU'],1),
+         ID=tail(COVID_risk.sim_noint[,'ID'],1),IU=tail(COVID_risk.sim_noint[,'IU'],1),
+         HD=tail(COVID_risk.sim_noint[,'HD'],1),
+         RD=tail(COVID_risk.sim_noint[,'RD'],1), RU=tail(COVID_risk.sim_noint[,'RU'],1),
+         DeadD=tail(COVID_risk.sim_noint[,'DeadD'],1),DeadU=tail(COVID_risk.sim_noint[,'DeadU'],1),
+         cumInciD=tail(COVID_risk.sim_noint[,'cumInciD'],1),cumInciU=tail(COVID_risk.sim_noint[,'cumInciU'],1))
+
+COVID_risk.sim_int=ode(y=state2,times=times_int,func=COVID_risk,parms=risk.parms_int)
+COVID_risk.sim=rbind(COVID_risk.sim_noint,COVID_risk.sim_int[-1,])
+
+inci_D=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'cumInciD']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'cumInciD']) #weekly incidence
+inci_U=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'cumInciU']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'cumInciU']) #weekly incidence
+
+death_weekD=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'DeadD']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'DeadD']) #weekly incidence of death
+death_weekU=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'DeadU']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'DeadU']) #weekly incidence of death
+death.week.inci = cbind(inci_D,inci_U,death_weekD,death_weekU)
+death.week.inci_all = cbind(inci_D+inci_U,death_weekD+death_weekU)
+
+i.sim_risk=(COVID_risk.sim[,'ID']+COVID_risk.sim[,'IU'])/N  # %I
+s.sim_risk=(COVID_risk.sim[,'SD']+COVID_risk.sim[,'SU'])/N #%S
+d.sim_risk=(COVID_risk.sim[,'DeadD']+COVID_risk.sim[,'DeadU'])/N # %Dead
+all.sim_risk=cbind(i.sim_risk,s.sim_risk,d.sim_risk)
+
+
+combined_sim=cbind(COVID_risk.sim[,'ID']+COVID_risk.sim[,'IU'],COVID_risk.sim[,'SD']+COVID_risk.sim[,'SU'],COVID_risk.sim[,'DeadD']+COVID_risk.sim[,'DeadU'],COVID_risk.sim[,'cumInciD']+COVID_risk.sim[,'cumInciU'], COVID_risk.sim[,'time'])
+
+s.simD=COVID_risk.sim[,'SD']/N #%S
+s.simU=COVID_risk.sim[,'SU']/N #%S
+s.U =cbind(s.simD,s.simU)
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+#plot
+plot(inci_D,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Documented Incidence of COVID over 100 Years",col='blue')
+plot(inci_U,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Undocumented Incidence of COVID over 100 Years",col='red')
+
+#Plot 
+par(mfrow=c(2,1),mar=c(3,3,1,1),mgp=c(1.8,.5,0))
+matplot(COVID_risk.sim[,'time'], COVID_risk.sim[,c('cumInciD','DeadD')],type='l', 
+        lwd=1,col=c('blue','red'),lty=1, main='Infection Prevalence Over 100 Years with Risk Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)')
+legend('right',c('Documented Infected','Documented Dead'),col=c('blue','red'),
+       lty=1, cex=1, lwd=1, bty='n')
+matplot(COVID_risk.sim[,'time'], COVID_risk.sim[,c('cumInciU','DeadU')],type='l', 
+        lwd=1,col=c('blue','red'),lty=1, main='Infection Prevalence Over 100 Years with Risk Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)')
+legend('right',c('Undocumented Infected', 'Undocumented Dead'),col=c('blue','red'),
+       lty=1, cex=1, lwd=1, bty='n')
+
+matplot(all.sim_risk[,c('i.sim_risk','s.sim_risk','d.sim_risk')],type='l', 
+        lwd=1,col=c('blue','red','green'),lty=1, main='% of Population Affected by COVID Over 100 Years', cex.main=1,
+        ylab='% of N',xlab='Time (days)')
+legend('topright',c('%I','%S','%Dead'),col=c('blue','red','green'),
+       lty=1, cex=1, lwd=1, bty='n')
+
+matplot(s.U[,c('s.simD','s.simU')],type='l', 
+        lwd=1,col=c('blue','red','green'),lty=1, main='%S of Population Affected by COVID Over 100 Years', cex.main=1,
+        ylab='% of N',xlab='Time (days)')
+legend('right',c('Documented','Undocumented'),col=c('blue','red','green'),
+       lty=1, cex=1, lwd=1, bty='n')
+```
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+plot(inci_D,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Documented Incidence of COVID over 100 Years",col='blue',xlim=c(0,52))
+plot(inci_U,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Undocumented Incidence of COVID over 100 Years",col='red',xlim=c(0,52))
+
+par(mfrow=c(2,1),mar=c(3,3,1,1),mgp=c(1.8,.5,0))
+matplot(COVID_risk.sim[,'time'], COVID_risk.sim[,c('cumInciD','DeadD')],type='l', 
+        lwd=1,col=c('blue','red'),lty=1, main='Infection Prevalence Over 1 Year with Risk Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)', xlim=c(0,365))
+legend('right',c('Documented Infected','Documented Dead'),col=c('blue','red','green','purple'),
+       lty=1, cex=1, lwd=1, bty='n')
+matplot(COVID_risk.sim[,'time'], COVID_risk.sim[,c('cumInciU','DeadU')],type='l', 
+        lwd=1,col=c('blue','red'),lty=1, main='Infection Prevalence Over 1 Year with Risk Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)',xlim=c(0,365))
+legend('right',c('Undocumented Infected', 'Undocumented Dead'),col=c('blue','red'),
+       lty=1, cex=1, lwd=1, bty='n')
+
+matplot(all.sim_risk[,c('i.sim_risk','s.sim_risk','d.sim_risk')],type='l', 
+        lwd=1,col=c('blue','red','green'),lty=1, main='% of Population Affected by COVID Over 1 Year', cex.main=1,
+        ylab='% of N',xlab='Time (days)',xlim=c(0,365))
+legend('topright',c('%I','%S','%Dead'),col=c('blue','red','green'),
+       lty=1, cex=1, lwd=1, bty='n')
+
+matplot(s.U[,c('s.simD','s.simU')],type='l', 
+        lwd=1,col=c('blue','red','green'),lty=1, main='%S of Population Affected by COVID Over 1 Year', cex.main=1,
+        ylab='% of N',xlab='Time (days)', xlim=c(0,365))
+legend('right',c('Documented','Undocumented'),col=c('blue','red','green'),
+       lty=1, cex=1, lwd=1, bty='n')
+```
+
