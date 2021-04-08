@@ -14,7 +14,7 @@ COVID=function(times,state,parameters){
     
     # rate of change for DOCUMENTED cases
     dS =  -S/N * (beta.I*(1+beta1*cos(omega*times)) * I + beta.H * H) + mu*N - mu*S;
-    dE = S/N * (beta.I*(1+beta1*cos(omega*times)) * I + beta.H * H)  -  alpha*E -mu*E;
+    dE = S/N * (beta.I*(1+beta1*cos(omega*times)) * I + beta.H * H)  -  alpha*E - mu*E;
     dI = alpha*E - I*( (gamma_h*theta1*(1-delta2)) + (gamma_f*(1-theta1)*(1-delta2)) + (gamma_i*(1-theta1)*delta2) ) - mu*I;
     dH = gamma_h*theta1*(1-delta2)*I - H*( (gamma_d*delta1)  +  (gamma_r*(1-delta1)) ) - mu*H;
     dR = gamma_r*(1-delta1)*H + (gamma_f*(1-theta1)*(1-delta2))*I - mu*R;
@@ -101,125 +101,224 @@ plot(d.sim,ylab='%Dead',xlab='Days',type='l',lwd=1, main="%Dead of COVID Over 1 
 
 **Risk Structured Model With Seasonality Forcing**
 ```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
-COVID_risk=function(times,state,parameters){
+library(deSolve)
+COVID=function(times,state,parameters){
   with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N - sum(BETA[1,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[1] - l1*S1;
+    dE1 = sum(BETA[1,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[1] - E1*(alpha*theta[1] - alpha*(1-theta[1])) - l1*E1;
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*(alpha*(1-theta[1])) - gamma*rho[1]*M1 - gamma*(1-rho[1])*M1 - l1*M1;
+    dH1 = gamma*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 * - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA[2,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[2] - l2*S2;
+    dE2 = l1*E1 + sum(BETA[2,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[2] - E2*(alpha*theta[2] - alpha*(1-theta[2])) - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*(alpha*(1-theta[2])) - gamma*rho[2]*M2 - gamma*(1-rho[2])*M2 - l2*M2;
+    dH2 = l1*H1 + gamma*rho[2]*M1 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[1]*H2 - l2*R2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA[3,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[2] - l3*S3;
+    dE3 = l2*E2 + sum(BETA[3,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[3] - E3*(alpha*theta[3] - alpha*(1-theta[3])) - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l3*A3;
+    dM3 = l2*M2 + E3*(alpha*(1-theta[3])) - gamma*rho[3]*M3 - gamma*(1-rho[3])*M3 - l3*M3;
+    dH3 = l2*H2 + gamma*rho[3]*M1 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA[4,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[4] - mu*S4;
+    dE4 = l3*E3 + sum(BETA[4,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[4] - E4*(alpha*theta[4] - alpha*(1-theta[4])) - mu*E4;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4 - mu*A4;
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - gamma*rho[4]*M4 - gamma*(1-rho[4])*M4 - mu*M4;
+    dH4 = l3*H3 +gamma*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4 - mu*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4 - mu*R4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4 - mu*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
     
-    # rate of change for DOCUMENTED cases
-    dSD =  -SD/N * (beta.IDD*(1+beta1*cos(omega*times))*ID + beta.IDU*(1+beta1*cos(omega*times))*ID + beta.H*HD + beta.H*HD ) + mu*ND - mu*SD;
-    dED = SD/N * (beta.IDD*(1+beta1*cos(omega*times))*ID + beta.IDU*(1+beta1*cos(omega*times))*ID + beta.H*HD + beta.H*HD ) - alpha*ED -mu*ED;
-    dID = alpha*ED - ID*( (gamma_h*theta1*(1-delta2)) + (gamma_f*(1-theta1)*(1-delta2)) + (gamma_i*(1-theta1)*delta2) ) - mu*ID;
-    dHD = gamma_h*theta1*(1-delta2)*ID - HD*( (gamma_d*delta1)  +  (gamma_r*(1-delta1)) ) - mu*HD;
-    dRD = gamma_r*(1-delta1)*HD + (gamma_f*(1-theta1)*(1-delta2))*ID -mu*RD;
-    dDeadD = (gamma_i*(1-theta1)*delta2)*ID+ HD*(gamma_d*delta1) -mu*DeadD;
-    dcumInciD = alpha * ED; # cumulative incidence
-    
-    # rate of change for UNDOCUMENTED cases
-    dSU =  -SU/N * (beta.IUU*(1+beta1*cos(omega*times))*IU + beta.IUD*(1+beta1*cos(omega*times))*IU) + mu*NU - mu*SU;
-    dEU = SU/N * (beta.IUU*(1+beta1*cos(omega*times))*IU + beta.IUD*(1+beta1*cos(omega*times))*IU)  -  alpha*EU -mu*EU;
-    dIU = alpha*EU - IU*( (gamma_f*(1-delta2)) + (gamma_i*delta2) ) - mu*IU;
-    dRU = (gamma_f*(1-delta2))*IU + mu*RU ;
-    dDeadU = (gamma_i*delta2)*IU - mu*DeadU;
-    dcumInciU = alpha * EU; # cumulative incidence
-    
-    # return the rate of change
-    list(c(dSD, dSU, dED, dEU, dID, dIU, dHD, dRD, dRU, dDeadD, dDeadU, dcumInciD, dcumInciU))
+          # return the rate of change
+    list(c(dS1, dS2, dS3, dS4, dE1, dE2, dE3, dE4, dA1, dA2, dA3, dA4, dM1, dM2, dM3, dM4, dH1, dH2, dH3, dH4, dR1, dR2, dR3, dR4, dC1, dC2, dC3, dC4, dDead1, dDead2, dDead3, dDead4, dcumInci1, dcumInci2,dcumInci3,dcumInci4))
   }) # end with(as.list...)
 }
 
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
 N=8500000;
-ND=N*(1-0.86);
-ID_0=21;
-ED_0=0;
-SD_0=ND-ID_0-ED_0;
-cumInciD_0=ED_0+ID_0;
-HD_0=RD_0=DeadD_0=0;
-
-NU=N*0.86;
-IU_0=21;
-EU_0=0;
-SU_0=NU-IU_0-EU_0;
-cumInciU_0=EU_0+IU_0;
-RU_0=DeadU_0=0;
-
-state_risk=c(SD=SD_0, SU=SU_0, ED=ED_0, EU=EU_0, ID=ID_0, IU=IU_0, 
-             HD=HD_0,RD=RD_0, RU=RU_0, DeadD=DeadD_0, DeadU=DeadU_0, cumInciD=cumInciD_0, cumInciU=cumInciU_0)
-
-## parameters for the COVID outbreak 2019 for risk structured model 
-#intervention
-beta.IDDi = beta.IDUi = 0.03 #transmission from documented 
-beta.IUUi = beta.IUDi = 0.1 #transmission in community from undocumented
-#no intervention
-beta.IDD = beta.IDU = 0.03 #transmission from documented 
-beta.IUU = beta.IUD = 0.4 #transmission in community from undocumented
-
-beta.H = 1/9.5 #transmission rate in hospital
+n=c(0.19, 0.23, 0.43, 0.15);
+A0=c(1,1,1,1);
+M0=c(1,1,1,1);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0;
+  
 beta1 = 1.12 #peak infection
-alpha = 1/6.4 #latent period
-gamma_f = 1/20.5 #from infected to recovered without hospitalization
-gamma_i = 1/16 #from infection to death
-gamma_h = 1/5.8 #from infected to hospitalized
-gamma_d = 1/(16-5.8) #from hospitalization to death
-gamma_r = 1/7 #rate of recovery
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
 mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
-theta1 = 0.21 #proportion of infected who are hospitalized
-delta1 = 0.26 #case fatality rate for hospitalized infections
-delta2 = 0.0139 #case fatality rate for non-hospitalized infections
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered
 omega = 2*pi/365 #sinusoidal forcing
+times=seq(1,365,by=1) 
 
-risk.parms_int= c(alpha=alpha,
-                   beta.IDD=beta.IDDi,
-                   beta1=beta1,
-                   beta.IUU = beta.IUUi,
-                   beta.IUD = beta.IUDi,
-                   beta.IDU = beta.IDUi,
-                   beta.H=beta.H,
-                   gamma_f=gamma_f,
-                   gamma_i=gamma_i,
-                   mu=mu,
-                   gamma_h=gamma_h,
-                   gamma_d=gamma_d,
-                   gamma_r=gamma_r,
-                   theta1=theta1,
-                   delta1=delta1,
-                   delta2=delta2,
-                   omega=omega)
+#beta matrix
+gamma*(5/3)/(1-theta)
+0.7*gamma*(5/3)/(1-theta)
+gamma*(5/3)/(theta)
+gamma*(2.5/3)/(1-theta)
+0.7*gamma*(2.5/3)/(1-theta)
+gamma*(2.5/3)/(theta)
 
-risk.parms_noint= c(alpha=alpha,
-                   beta.IDD=beta.IDD,
-                   beta1=beta1,
-                   beta.IUU = beta.IUU,
-                   beta.IUD = beta.IUD,
-                   beta.IDU = beta.IDU,
-                   beta.H=beta.H,
-                   gamma_f=gamma_f,
-                   gamma_i=gamma_i,
-                   mu=mu,
-                   gamma_h=gamma_h,
-                   gamma_d=gamma_d,
-                   gamma_r=gamma_r,
-                   theta1=theta1,
-                   delta1=delta1,
-                   delta2=delta2,
-                   omega=omega)
+beta=matrix(c(4.80,1.68,1.12,0.84,
+              1.68,2.40,1.68,0.60,
+              1.12,1.68,1.60,2.24,
+              0.84,0.60,1.12,1.20),4,4,byrow=T)
+Nmatrix=diag(n,4,4);
+r0= eigen(Nmatrix %*% beta)$values[1]
+b = 2.5/r0*gamma
+BETA=matrix(c(4.80,1.68,1.12,0.84,
+              1.68,2.40,1.68,0.60,
+              1.12,1.68,1.60,2.24,
+              0.84,0.60,1.12,1.20),4,4,byrow=T)*b
 
+state=c(S1=S0[1],S2=S0[2],S3=S0[3],S4=S0[4],
+        E1=E0[1],E2=E0[2],E3=E0[3],E4=E0[4],
+        A1=A0[1],A2=A0[2],A3=A0[3],A4=A0[4],
+        M1=A0[1],M2=M0[2],M3=M0[3],M4=M0[4],
+        H1=A0[1],H2=H0[2],H3=H0[3],H4=H0[4],
+        R1=R0[1],R2=R0[2],R3=R0[3],R4=R0[4],
+        C1=C0[1],C2=C0[2],C3=C0[3],C4=C0[4],
+        Dead1=Dead0[1],Dead2=Dead0[2],Dead3=Dead0[3],Dead4=Dead0[4],
+        cumInci1=cumInci0[1],cumInci2=cumInci0[2],cumInci3=cumInci0[3],cumInci4=cumInci0[4])
+
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma_h=gamma_h,kappa_c=kappa_c,
+             sigma=sigma,omega=omega,N=N,beta1=beta1)    
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+library(deSolve)
+COVID=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N - sum(BETA[1,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[1] - l1*S1;
+    dE1 = sum(BETA[1,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[1] - E1*(alpha*theta[1] - alpha*(1-theta[1])) - l1*E1;
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*(alpha*(1-theta[1])) - gamma*rho[1]*M1 - gamma*(1-rho[1])*M1 - l1*M1;
+    dH1 = gamma*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 * - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA[2,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[2] - l2*S2;
+    dE2 = l1*E1 + sum(BETA[2,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[2] - E2*(alpha*theta[2] - alpha*(1-theta[2])) - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*(alpha*(1-theta[2])) - gamma*rho[2]*M2 - gamma*(1-rho[2])*M2 - l2*M2;
+    dH2 = l1*H1 + gamma*rho[2]*M1 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[1]*H2 - l2*R2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA[3,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[3] - l3*S3;
+    dE3 = l2*E2 + sum(BETA[3,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[3] - E3*(alpha*theta[3] - alpha*(1-theta[3])) - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l3*A3;
+    dM3 = l2*M2 + E3*(alpha*(1-theta[3])) - gamma*rho[3]*M3 - gamma*(1-rho[3])*M3 - l3*M3;
+    dH3 = l2*H2 + gamma*rho[3]*M1 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA[4,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[4] - mu*S4;
+    dE4 = l3*E3 + sum(BETA[4,]*c(A1,A2,A3,A4))*(1+beta1*cos(omega*times))*n[4] - E4*(alpha*theta[4] - alpha*(1-theta[4])) - mu*E4;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4 - mu*A4;
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - gamma*rho[4]*M4 - gamma*(1-rho[4])*M4 - mu*M4;
+    dH4 = l3*H3 +gamma*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4 - mu*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4 - mu*R4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4 - mu*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
+    
+          # return the rate of change
+    list(c(dS1, dS2, dS3, dS4, dE1, dE2, dE3, dE4, dA1, dA2, dA3, dA4, dM1, dM2, dM3, dM4, dH1, dH2, dH3, dH4, dR1, dR2, dR3, dR4, dC1, dC2, dC3, dC4, dDead1, dDead2, dDead3, dDead4, dcumInci1, dcumInci2,dcumInci3,dcumInci4))
+  }) # end with(as.list...)
+}
+
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15);
+A0=c(1,1,1,1);
+M0=c(1,1,1,1);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0;
+  
+beta1 = 1.12 #peak infection
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered
+omega = 2*pi/365 #sinusoidal forcing
+times=seq(1,365,by=1) 
+
+#beta matrix
+gamma*(5/3)/(1-theta)
+0.7*gamma*(5/3)/(1-theta)
+gamma*(5/3)/(theta)
+gamma*(2.5/3)/(1-theta)
+0.7*gamma*(2.5/3)/(1-theta)
+gamma*(2.5/3)/(theta)
+
+beta=matrix(c(4.80,1.68,1.12,0.84,
+              1.68,2.40,1.68,0.60,
+              1.12,1.68,1.60,2.24,
+              0.84,0.60,1.12,1.20),4,4,byrow=T)
+Nmatrix=diag(n,4,4);
+r0= eigen(Nmatrix %*% beta)$values[1]
+b = 2.5/r0*gamma
+BETA=matrix(c(4.80,1.68,1.12,0.84,
+              1.68,2.40,1.68,0.60,
+              1.12,1.68,1.60,2.24,
+              0.84,0.60,1.12,1.20),4,4,byrow=T)*b
+
+state=c(S1=S0[1],S2=S0[2],S3=S0[3],S4=S0[4],
+        E1=E0[1],E2=E0[2],E3=E0[3],E4=E0[4],
+        A1=A0[1],A2=A0[2],A3=A0[3],A4=A0[4],
+        M1=A0[1],M2=M0[2],M3=M0[3],M4=M0[4],
+        H1=A0[1],H2=H0[2],H3=H0[3],H4=H0[4],
+        R1=R0[1],R2=R0[2],R3=R0[3],R4=R0[4],
+        C1=C0[1],C2=C0[2],C3=C0[3],C4=C0[4],
+        Dead1=Dead0[1],Dead2=Dead0[2],Dead3=Dead0[3],Dead4=Dead0[4],
+        cumInci1=cumInci0[1],cumInci2=cumInci0[2],cumInci3=cumInci0[3],cumInci4=cumInci0[4])
+
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma_h=gamma_h,kappa_c=kappa_c,
+             sigma=sigma,omega=omega,N=N,beta1=beta1)    
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE,echo=FALSE}
 #run for 8 weeks without social distancing
-times_noint =seq(0,4*7,by=1)
-COVID_risk.sim_noint=ode(y=state_risk,times=times_noint,func=COVID_risk,parms=risk.parms_noint)
-#run for 8 weeks and after with social distancing
-times_int=seq(4*7,365*100,by=1)
-state2=c(SD=tail(COVID_risk.sim_noint[,'SD'],1),SU=tail(COVID_risk.sim_noint[,'SU'],1),
-         ED=tail(COVID_risk.sim_noint[,'ED'],1),EU=tail(COVID_risk.sim_noint[,'EU'],1),
-         ID=tail(COVID_risk.sim_noint[,'ID'],1),IU=tail(COVID_risk.sim_noint[,'IU'],1),
-         HD=tail(COVID_risk.sim_noint[,'HD'],1),
-         RD=tail(COVID_risk.sim_noint[,'RD'],1), RU=tail(COVID_risk.sim_noint[,'RU'],1),
-         DeadD=tail(COVID_risk.sim_noint[,'DeadD'],1),DeadU=tail(COVID_risk.sim_noint[,'DeadU'],1),
-         cumInciD=tail(COVID_risk.sim_noint[,'cumInciD'],1),cumInciU=tail(COVID_risk.sim_noint[,'cumInciU'],1))
+COVID.sim=ode(y=state,times=times,func=COVID,parms=parameters)
 
-COVID_risk.sim_int=ode(y=state2,times=times_int,func=COVID_risk,parms=risk.parms_int)
-COVID_risk.sim=rbind(COVID_risk.sim_noint,COVID_risk.sim_int[-1,])
-
-inci_D=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'cumInciD']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'cumInciD']) #weekly incidence
-inci_U=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'cumInciU']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'cumInciU']) #weekly incidence
+inci1=COVID.sim[seq(7,nrow(COVID.sim),by=7),'cumInci1'] #weekly incidence
 
 death_weekD=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'DeadD']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'DeadD']) #weekly incidence of death
 death_weekU=COVID_risk.sim[seq(7,nrow(COVID_risk.sim),by=7),'DeadU']-c(0,COVID_risk.sim[seq(7,nrow(COVID_risk.sim)-7,by=7),'DeadU']) #weekly incidence of death
@@ -241,8 +340,8 @@ s.U =cbind(s.simD,s.simU)
 
 ```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
 #plot
-plot(inci_D,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Documented Incidence of COVID over 100 Years",col='blue')
-plot(inci_U,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Undocumented Incidence of COVID over 100 Years",col='red')
+plot(inci1,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Documented Incidence of COVID over 1 Year",col='blue')
+plot(inci_U,ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Undocumented Incidence of COVID over 1 Year",col='red')
 
 #Plot 
 par(mfrow=c(2,1),mar=c(3,3,1,1),mgp=c(1.8,.5,0))
