@@ -1,0 +1,387 @@
+---
+title: "COVID Age Structured Model.Version2"
+author: "Jiayi Zhou(jz3336)"
+date: "4/11/2021"
+output: html_document
+---
+**Age Structured Model Without Seasonal Forcing**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+library(deSolve)
+
+# Minor editions was made. I double checked that all compartments balanced out in the end.
+COVID=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N*n[1] - sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(S1/N*n[1]) - l1*S1;# multiplied N by n[1] since only first group will have new born
+    dE1 = sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(S1/N*n[1]) - E1*alpha - l1*E1; # edited E1*alpha term
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*alpha*(1-theta[1]) - (gamma.h*rho[1] + gamma*(1-rho[1]))*M1 - l1*M1;# ----------------added gamma.h
+    dH1 = gamma.h*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA[2,]*c(A1,A2,A3,A4)+ BETA[2,]*c(M1,M2,M3,M4))*(S2/N*n[2]) - l2*S2;
+    dE2 = l1*E1 + sum(BETA[2,]*c(A1,A2,A3,A4) + BETA[2,]*c(M1,M2,M3,M4))*(S2/N*n[2]) - E2*alpha - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*alpha*(1-theta[2]) - (gamma.h*rho[2] + gamma*(1-rho[2]))*M2 - l2*M2;
+    dH2 = l1*H1 + gamma.h*rho[2]*M2 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[2]*H2 - l2*R2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA[3,]*c(A1,A2,A3,A4)+ BETA[3,]*c(M1,M2,M3,M4))*(S3/N*n[3]) - l3*S3;
+    dE3 = l2*E2 + sum(BETA[3,]*c(A1,A2,A3,A4) + BETA[3,]*c(M1,M2,M3,M4))*(S3/N*n[3]) - E3*alpha - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l2*A3;
+    dM3 = l2*M2 + E3*alpha*(1-theta[3]) - (gamma.h*rho[3] + gamma*(1-rho[3]))*M3 - l3*M3;
+    dH3 = l2*H2 + gamma.h*rho[3]*M3 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(S4/N*n[4]) - mu*N*n[1];# ------added n[1]
+    dE4 = l3*E3 + sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(S4/N*n[4]) - E4*alpha;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4; #------------------------deleted the mu*A4 term, cannot balance out
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - (gamma.h*rho[4] + gamma*(1-rho[4]))*M4;
+    dH4 = l3*H3 + gamma.h*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
+    
+          # return the rate of change
+    list(c(dS1, dS2, dS3, dS4, dE1, dE2, dE3, dE4, dA1, dA2, dA3, dA4, dM1, dM2, dM3, dM4, dH1, dH2, dH3, dH4, dR1, dR2, dR3, dR4, dC1, dC2, dC3, dC4, dDead1, dDead2, dDead3, dDead4, dcumInci1, dcumInci2,dcumInci3,dcumInci4))
+  })
+}
+
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15); # ---------- The article used 0.39, 0.28, 0.28, 0.5, should we use these too? 
+A0=c(5,5,5,5);
+M0=c(5,5,5,5);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0-M0;
+  
+beta1 = 2 #peak infection
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+gamma.h = 0.14 #--------------------------reporting rate, infection being documented
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection-------Why divided by 11 13
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered------------------- why divided by 4 6
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection-----why 5 5 6 6 
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered----------------why 9, 9, 10, 10
+omega = 2*pi/365 #sinusoidal forcing
+times=seq(1,2*365,by=1) 
+
+#beta matrix
+(gamma+mu)*(2.5)/(alpha/(alpha+mu)) #---------This is what I found in note how to get beta for SEIR
+gamma*2.5*1.3 #-------------------------------what was originally used, for SIR.
+
+#Could you please teach me how you get these betas? since they does not match with (gamma+mu)*(2.5)/(alpha/(alpha+mu))
+#And I cannot find them in the artical.
+beta=matrix(c(1.46,0.90,0.90,0.67,
+              0.90,1.46,1.12,0.78,
+              0.90,1.12,1.46,0.80,
+              0.67,0.78,0.80,1.46),4,4,byrow=T)
+Nmatrix=diag(n,4,4);
+r0 = eigen(Nmatrix %*% beta)$values[1]
+b = 2.5/r0*gamma
+BETA=matrix(c(1.46,0.90,0.90,0.67,
+              0.90,1.46,1.12,0.78,
+              0.90,1.12,1.46,0.80,
+              0.67,0.78,0.80,1.46),4,4,byrow=T)
+
+state=c(S1=S0[1],S2=S0[2],S3=S0[3],S4=S0[4],
+        E1=E0[1],E2=E0[2],E3=E0[3],E4=E0[4],
+        A1=A0[1],A2=A0[2],A3=A0[3],A4=A0[4],
+        M1=A0[1],M2=M0[2],M3=M0[3],M4=M0[4],
+        H1=A0[1],H2=H0[2],H3=H0[3],H4=H0[4],
+        R1=R0[1],R2=R0[2],R3=R0[3],R4=R0[4],
+        C1=C0[1],C2=C0[2],C3=C0[3],C4=C0[4],
+        Dead1=Dead0[1],Dead2=Dead0[2],Dead3=Dead0[3],Dead4=Dead0[4],
+        cumInci1=cumInci0[1],cumInci2=cumInci0[2],cumInci3=cumInci0[3],cumInci4=cumInci0[4])
+
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma.h = gamma.h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma,omega=omega,N=N,beta1=beta1)    
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+COVID.sim=ode(y=state,times=times,func=COVID,parms=parameters)
+I1 = rowSums(COVID.sim[,c('A1','M1')])
+I2 = rowSums(COVID.sim[,c('A2','M2')])
+I3 = rowSums(COVID.sim[,c('A3','M3')])
+I4 = rowSums(COVID.sim[,c('A4','M4')])
+COVID.sim = cbind(COVID.sim, I1, I2, I3, I4)
+S = rowSums(COVID.sim[,c('S1','S2','S3','S4')])
+E = rowSums(COVID.sim[,c('E1','E2','E3','E4')])
+A = rowSums(COVID.sim[,c('A1','A2','A3','A4')])
+M = rowSums(COVID.sim[,c('M1','M2','M3','M4')])
+R = rowSums(COVID.sim[,c('R1','R2','R3','R4')])
+C = rowSums(COVID.sim[,c('C1','C2','C3','C4')])
+H = rowSums(COVID.sim[,c('H1','H2','H3','H4')])
+allI= rowSums(COVID.sim[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci = (COVID.sim[,'cumInci1']+COVID.sim[,'cumInci2']+COVID.sim[,'cumInci3']+COVID.sim[,'cumInci4'])
+dead = (COVID.sim[,'Dead1']+COVID.sim[,'Dead2']+COVID.sim[,'Dead3']+COVID.sim[,'Dead4'])
+all.sim = cbind(S,E,A,M,R,C,H,allI,cuminci,COVID.sim[,'time'],dead)
+ 
+#weekly incidence
+inci=all.sim[seq(7,nrow(all.sim),by=7),'cuminci']-c(0,all.sim[seq(7,nrow(all.sim)-7,by=7),'cuminci'])
+
+#plot
+plot(inci,ylab='Weekly incidence',xlab='Week',type='l',lwd=2)
+
+plot(all.sim[,'cuminci'],ylab='Weekly Incidence',xlab='Day',type='l',lwd=1, main="Cumulative Incidence of COVID over 2 Year",col='blue')
+
+matplot(COVID.sim[,'time'], COVID.sim[,c('S1','S2','S3','S4')],type='l', 
+        lwd=1,col=c('blue','red','green','purple'),lty=1, main='Susceptibility Over 2 Year with Age Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)')
+legend('topright',c('age 0-15','age 15-29', 'age 30-59', 'age 59+'), lwd=1, col=c('blue','red','green','purple'),bty='n')
+
+matplot(COVID.sim[,'time'], COVID.sim[,c('A1','A2','A3','A4')],type='l', 
+        lwd=1,col=c('blue','red','green','purple'),lty=1, main='Asymptomatic Incidence Over 2 Year by Age',         
+        cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('age 0-15','age 15-29', 'age 30-59', 'age 59+'), lwd=1, col=c('blue','red','green','purple'),bty='n')
+#####################################################################################################################
+#The simulated number of mild and critical incidences among elder people does not match with main stream findings####
+matplot(COVID.sim[,'time'], COVID.sim[,c('M1','M2','M2','M3','M4')],type='l', 
+        lwd=1,col=c('blue','red','green','purple'),lty=1, main='Mild Infection Over 2 Year with Age Structure Model',              cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('age 0-15','age 15-29', 'age 30-59', 'age 59+'), lwd=1, col=c('blue','red','green','purple'),bty='n')
+
+matplot(COVID.sim[,'time'], COVID.sim[,c('C1', 'C2','C3','C4')],type='l', 
+        lwd=1,col=c('blue','red','green','purple'),lty=1, main=' Critical Infection Over 2 Year by Age',cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('age 0-15','age 15-29', 'age 30-59', 'age 59+'), lwd=1, col=c('blue','red','green','purple'),bty='n')
+#######################################################################################################################
+
+matplot(COVID.sim[,'time'], COVID.sim[,c('I1', 'I2','I3','I4')],type='l', 
+        lwd=1,col=c('blue','red','green','purple'),lty=1, main=' Incidence Over 2 Year by Age',cex.main=1, ylab='Number of         People',xlab='Time (days)')
+legend('topright',c('age 0-15','age 15-29', 'age 30-59', 'age 59+'), lwd=1, col=c('blue','red','green','purple'),bty='n')
+
+
+```
+
+**With Intervention**
+```{r}
+library(deSolve)
+
+z = 0.3 #Reducing the transmission rate by 70% with control measures
+
+times1=seq(1,9*7,by=1); # first 9 weeks with out intervention
+times2=seq(9*7, 2*365,by=1); # afterward with incidence
+
+# Stage 1: no intervention
+COVID.sim=ode(y=state,times=times1,func=COVID,parms=parameters);
+
+state=c(S1=S0[1],S2=S0[2],S3=S0[3],S4=S0[4],
+        E1=E0[1],E2=E0[2],E3=E0[3],E4=E0[4],
+        A1=A0[1],A2=A0[2],A3=A0[3],A4=A0[4],
+        M1=A0[1],M2=M0[2],M3=M0[3],M4=M0[4],
+        H1=A0[1],H2=H0[2],H3=H0[3],H4=H0[4],
+        R1=R0[1],R2=R0[2],R3=R0[3],R4=R0[4],
+        C1=C0[1],C2=C0[2],C3=C0[3],C4=C0[4],
+        Dead1=Dead0[1],Dead2=Dead0[2],Dead3=Dead0[3],Dead4=Dead0[4],
+        cumInci1=cumInci0[1],cumInci2=cumInci0[2],cumInci3=cumInci0[3],cumInci4=cumInci0[4])
+
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma.h = gamma.h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma,omega=omega,N=N,beta1=beta1)  
+# Stage 2: yes intervention
+state2=c(S1=tail(COVID.sim[,'S1'],1),S2=tail(COVID.sim[,'S2'],1),
+         S3=tail(COVID.sim[,'S3'],1),S4=tail(COVID.sim[,'S4'],1),
+         E1=tail(COVID.sim[,'E1'],1),E2=tail(COVID.sim[,'E2'],1),
+         E3=tail(COVID.sim[,'E3'],1),E4=tail(COVID.sim[,'E4'],1),
+         A1=tail(COVID.sim[,'A1'],1),A2=tail(COVID.sim[,'A2'],1),
+         A3=tail(COVID.sim[,'A3'],1),A4=tail(COVID.sim[,'A4'],1),
+         M1=tail(COVID.sim[,'M1'],1),M2=tail(COVID.sim[,'M2'],1),
+         M3=tail(COVID.sim[,'M3'],1),M4=tail(COVID.sim[,'M4'],1),
+         H1=tail(COVID.sim[,'H1'],1),H2=tail(COVID.sim[,'H2'],1),
+         H3=tail(COVID.sim[,'H3'],1),H4=tail(COVID.sim[,'H4'],1),
+         R1=tail(COVID.sim[,'R1'],1),R2=tail(COVID.sim[,'R2'],1),
+         R3=tail(COVID.sim[,'R3'],1),R4=tail(COVID.sim[,'R4'],1),
+         C1=tail(COVID.sim[,'C1'],1),C2=tail(COVID.sim[,'C2'],1),
+         C3=tail(COVID.sim[,'C3'],1),C4=tail(COVID.sim[,'C4'],1),
+         Dead1=tail(COVID.sim[,'Dead1'],1),Dead2=tail(COVID.sim[,'Dead2'],1),
+         Dead3=tail(COVID.sim[,'Dead3'],1),Dead4=tail(COVID.sim[,'Dead4'],1),
+         cumInci1=tail(COVID.sim[,'cumInci1'],1),cumInci2=tail(COVID.sim[,'cumInci2'],1),
+         cumInci3=tail(COVID.sim[,'cumInci3'],1),cumInci4=tail(COVID.sim[,'cumInci4'],1))
+
+  parametersCtrl=c(BETA=BETA*z,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma.h = gamma.h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma,omega=omega,N=N,beta1=beta1) 
+
+  COVID.Ctrl=ode(y=state2,times=times2,func=COVID,parms=parametersCtrl)
+
+# Combine the two
+sim2=rbind(COVID.sim,COVID.Ctrl[-1,])
+
+I1 = rowSums(sim2[,c('A1','M1')])
+I2 = rowSums(sim2[,c('A2','M2')])
+I3 = rowSums(sim2[,c('A3','M3')])
+I4 = rowSums(sim2[,c('A4','M4')])
+sim2 = cbind(sim2, I1, I2, I3, I4)
+S = rowSums(sim2[,c('S1','S2','S3','S4')])
+E = rowSums(sim2[,c('E1','E2','E3','E4')])
+A = rowSums(sim2[,c('A1','A2','A3','A4')])
+M = rowSums(sim2[,c('M1','M2','M3','M4')])
+R = rowSums(sim2[,c('R1','R2','R3','R4')])
+C = rowSums(sim2[,c('C1','C2','C3','C4')])
+H = rowSums(sim2[,c('H1','H2','H3','H4')])
+allI= rowSums(sim2[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci = rowSums(sim2[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead = rowSums(sim2[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim2 = cbind(S,E,A,M,R,C,H,allI,cuminci,sim2[,'time'],dead)
+
+inci2=all.sim2[seq(7,nrow(all.sim2),by=7),'cuminci']-c(0,all.sim2[seq(7,nrow(all.sim2)-7,by=7),'cuminci']) #weekly incidences
+
+#Plots
+plot(inci2,ylab='Weekly incidence',xlab='Week',type='l',lwd=2)
+plot(all.sim2[,'cuminci'],ylab='Cumulative incidence',xlab='Day',type='l',lwd=2)
+
+
+```
+
+
+**Age Structured Model With Seasonal Forcing**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+library(deSolve)
+COVID.SF=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N*n[1] - sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S1/N*n[1]) - l1*S1;
+    dE1 = sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S1/N*n[1]) - E1*alpha - l1*E1;
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*alpha*(1-theta[1]) - (gamma.h*rho[1] + gamma*(1-rho[1]))*M1 - l1*M1;
+    dH1 = gamma.h*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA[2,]*c(A1,A2,A3,A4)+ BETA[2,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S2/N*n[2]) - l2*S2;
+    dE2 = l1*E1 + sum(BETA[2,]*c(A1,A2,A3,A4) + BETA[2,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S2/N*n[2]) - E2*alpha - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*alpha*(1-theta[2]) - (gamma.h*rho[2] + gamma*(1-rho[2]))*M2 - l2*M2;
+    dH2 = l1*H1 + gamma.h*rho[2]*M2 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[2]*H2 - l2*R2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA[3,]*c(A1,A2,A3,A4)+ BETA[3,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S3/N*n[3]) - l3*S3;
+    dE3 = l2*E2 + sum(BETA[3,]*c(A1,A2,A3,A4) + BETA[3,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S3/N*n[3]) - E3*alpha - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l2*A3;
+    dM3 = l2*M2 + E3*alpha*(1-theta[3]) - (gamma.h*rho[3] + gamma*(1-rho[3]))*M3 - l3*M3;
+    dH3 = l2*H2 + gamma.h*rho[3]*M3 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S4/N*n[4]) - mu*N*n[1];
+    dE4 = l3*E3 + sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(1+beta1*cos(omega*times))*(S4/N*n[4]) - E4*alpha;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4;
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - (gamma.h*rho[4] + gamma*(1-rho[4]))*M4;
+    dH4 = l3*H3 + gamma.h*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
+    
+          # return the rate of change
+    list(c(dS1, dS2, dS3, dS4, dE1, dE2, dE3, dE4, dA1, dA2, dA3, dA4, dM1, dM2, dM3, dM4, dH1, dH2, dH3, dH4, dR1, dR2, dR3, dR4, dC1, dC2, dC3, dC4, dDead1, dDead2, dDead3, dDead4, dcumInci1, dcumInci2,dcumInci3,dcumInci4))
+  })
+}
+
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15);
+A0=c(1,1,1,1);
+M0=c(1,1,1,1);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0-M0;
+  
+beta1 = 2 #peak infection
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+gamma.h = 0.14
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered
+omega = 2*pi/365 #sinusoidal forcing
+times_SF=seq(1,365*6,by=1) 
+
+#beta matrix
+gamma*(5/3)/(1-theta)
+0.7*gamma*(5/3)/(1-theta)
+gamma*(5/3)/(theta)
+gamma*(2.5/3)/(1-theta)
+0.7*gamma*(2.5/3)/(1-theta)
+gamma*(2.5/3)/(theta)
+
+beta=matrix(c(1.46,0.90,0.90,0.67,
+              0.90,1.46,1.12,0.78,
+              0.90,1.12,1.46,0.80,
+              0.67,0.78,0.80,1.46),4,4,byrow=T)
+Nmatrix=diag(n,4,4);
+r0= eigen(Nmatrix %*% beta)$values[1]
+b = 2.5/r0*gamma
+BETA=matrix(c(1.46,0.90,0.90,0.67,
+              0.90,1.46,1.12,0.78,
+              0.90,1.12,1.46,0.80,
+              0.67,0.78,0.80,1.46),4,4,byrow=T)
+
+state=c(S1=S0[1],S2=S0[2],S3=S0[3],S4=S0[4],
+        E1=E0[1],E2=E0[2],E3=E0[3],E4=E0[4],
+        A1=A0[1],A2=A0[2],A3=A0[3],A4=A0[4],
+        M1=A0[1],M2=M0[2],M3=M0[3],M4=M0[4],
+        H1=A0[1],H2=H0[2],H3=H0[3],H4=H0[4],
+        R1=R0[1],R2=R0[2],R3=R0[3],R4=R0[4],
+        C1=C0[1],C2=C0[2],C3=C0[3],C4=C0[4],
+        Dead1=Dead0[1],Dead2=Dead0[2],Dead3=Dead0[3],Dead4=Dead0[4],
+        cumInci1=cumInci0[1],cumInci2=cumInci0[2],cumInci3=cumInci0[3],cumInci4=cumInci0[4])
+
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma_h=gamma_h,kappa_c=kappa_c,
+             sigma=sigma,omega=omega,N=N,beta1=beta1)    
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+COVID.SF.sim=ode(y=state,times=times_SF,func=COVID.SF,parms=parameters)
+I1_SF = rowSums(COVID.SF.sim[,c('A1','M1')])
+I2_SF = rowSums(COVID.SF.sim[,c('A2','M2')])
+I3_SF = rowSums(COVID.SF.sim[,c('A3','M3')])
+I4_SF = rowSums(COVID.SF.sim[,c('A4','M4')])
+COVID.SF.sim = cbind(COVID.SF.sim, I1_SF, I2_SF, I3_SF, I4_SF)
+S_SF = rowSums(COVID.SF.sim[,c('S1','S2','S3','S4')])
+E_SF = rowSums(COVID.SF.sim[,c('E1','E2','E3','E4')])
+A_SF = rowSums(COVID.SF.sim[,c('A1','A2','A3','A4')])
+M_SF = rowSums(COVID.SF.sim[,c('M1','M2','M3','M4')])
+R_SF = rowSums(COVID.SF.sim[,c('R1','R2','R3','R4')])
+C_SF = rowSums(COVID.SF.sim[,c('C1','C2','C3','C4')])
+H_SF = rowSums(COVID.SF.sim[,c('H1','H2','H3','H4')])
+allI_SF= rowSums(COVID.SF.sim[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci_SF = (COVID.SF.sim[,'cumInci1']+COVID.SF.sim[,'cumInci2']+COVID.SF.sim[,'cumInci3']+COVID.SF.sim[,'cumInci4'])
+dead_SF= (COVID.SF.sim[,'Dead1']+COVID.SF.sim[,'Dead2']+COVID.SF.sim[,'Dead3']+COVID.SF.sim[,'Dead4'])
+all.SF.sim = cbind(S_SF,E_SF,A_SF,M_SF,R_SF,C_SF,H_SF,allI_SF,cuminci_SF,COVID.SF.sim[,'time'],dead_SF)
+inci_SF=all.SF.sim[seq(7,nrow(all.SF.sim),by=7),'cuminci_SF'] #weekly incidence
+
+#plot
+plot(all.SF.sim[,'cuminci_SF'],ylab='Weekly Incidence',xlab='Week',type='l',lwd=1, main="Weekly Incidence of COVID over 1 Year",col='blue')
+
+matplot(COVID.SF.sim[,'time'], COVID.SF.sim[,c('S1','S2','S3','S4')],type='l', 
+        lwd=1,col=c('blue','red','green','purple'),lty=1, main='Susceptibility Over 6 Year with Age Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)')
+
+matplot(COVID.SF.sim[,'time'], COVID.SF.sim[,c('I1_SF', 'I2_SF','I3_SF','I4_SF')],type='l', 
+        lwd=1,col=c('blue','red','green','purple','orange','cyan','brown','black'),lty=1, main=' Incidence Over 6 Year by Age',cex.main=1, ylab='Number of People',xlab='Time (days)')
+
+matplot(all.sim[,10], all.sim[,c('S','allI','H','C')]/N,type='l', 
+        lwd=1,col=c('blue','red','green','purple','orange','cyan','brown','black'),lty=1, main='%Susceptible vs. Infected Over 1 Year',cex.main=1, ylab='Number of People',xlab='Time (days)')
+```
