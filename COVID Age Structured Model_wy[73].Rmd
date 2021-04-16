@@ -1,0 +1,879 @@
+---
+title: "COVID Age Structured Model"
+author: "Anna Huang"
+date: "4/8/2021"
+output: pdf_document
+---
+**Age Structured Model Without Seasonal Forcing**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+library(deSolve)
+COVID=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N - sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(S1/(N*n[1])) - l1*S1;
+    dE1 = sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(S1/(N*n[1])) - E1*alpha - l1*E1; 
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*alpha*(1-theta[1]) - (gamma*rho[1] + gamma*(1-rho[1]))*M1 - l1*M1;
+    dH1 = gamma*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA[2,]*c(A1,A2,A3,A4)+ BETA[2,]*c(M1,M2,M3,M4))*(S2/(N*n[2])) - l2*S2;
+    dE2 = l1*E1 + sum(BETA[2,]*c(A1,A2,A3,A4) + BETA[2,]*c(M1,M2,M3,M4))*(S2/(N*n[2])) - E2*alpha - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*alpha*(1-theta[2]) - (gamma*rho[2] + gamma*(1-rho[2]))*M2 - l2*M2;
+    dH2 = l1*H1 + gamma*rho[2]*M2 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[2]*H2 - l2*R2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA[3,]*c(A1,A2,A3,A4)+ BETA[3,]*c(M1,M2,M3,M4))*(S3/(N*n[3])) - l3*S3;
+    dE3 = l2*E2 + sum(BETA[3,]*c(A1,A2,A3,A4) + BETA[3,]*c(M1,M2,M3,M4))*(S3/(N*n[3])) - E3*alpha - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l2*A3;
+    dM3 = l2*M2 + E3*alpha*(1-theta[3]) - (gamma*rho[3] + gamma*(1-rho[3]))*M3 - l3*M3;
+    dH3 = l2*H2 + gamma*rho[3]*M3 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(S4/(N*n[4])) - mu*N;# ------added n[1]
+    dE4 = l3*E3 + sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(S4/(N*n[4])) - E4*alpha;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4; 
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - (gamma*rho[4] + gamma*(1-rho[4]))*M4;
+    dH4 = l3*H3 + gamma*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
+    
+          # return the rate of change
+    list(c(dS1, dE1, dA1, dM1, dH1, dR1, dC1, dDead1, dcumInci1, 
+           dS2, dE2, dA2, dM2, dH2, dR2, dC2, dDead2, dcumInci2, 
+           dS3, dE3, dA3, dM3, dH3, dR3, dC3, dDead3, dcumInci3, 
+           dS4, dE4, dA4, dM4, dH4, dR4, dC4, dDead4, dcumInci4
+           ))
+  })
+}
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15);
+A0=c(1,1,1,1);
+M0=c(1,1,1,1);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0-M0;
+  
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection-------Why divided by 11 13
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered------------------- why divided by 4 6
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection-----why 5 5 6 6 
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered----------------why 9, 9, 10, 10
+times=seq(1,365,by=1) 
+
+##########New contact matrices and beta matrix################
+Ncontact=matrix(c(169.14,50.75,37.52,14.96,
+           50.75,75.66,49.45,25.08,
+           37.52,49.45,61.26,32.99,
+           14.96,25.08,32.99,54.23),4,4,byrow=T)/7; #--------------from contact matrix from Appendix table 2 of Wallinga, 2006
+                                                    #------divided by 7 because this was contacts per person per week
+Nmatrix=diag(n,4,4);
+r0 = eigen(Nmatrix %*% Ncontact)$values[1]/gamma
+b = 2.5/r0*gamma
+BETA=Ncontact*b
+
+state=c(S1=S0[1], E1=E0[1], A1=A0[1], M1=A0[1], H1=A0[1], R1=R0[1], C1=C0[1],Dead1=Dead0[1],cumInci1=cumInci0[1],
+        S2=S0[2], E2=E0[2], A2=A0[2], M2=A0[2], H2=A0[2], R2=R0[2], C2=C0[2],Dead2=Dead0[2],cumInci2=cumInci0[2],
+        S3=S0[3], E3=E0[3], A3=A0[3], M3=A0[3], H3=A0[3], R3=R0[3], C3=C0[3],Dead3=Dead0[3],cumInci3=cumInci0[3],
+        S4=S0[4], E4=E0[4], A4=A0[4], M4=A0[4], H4=A0[4], R4=R0[4], C4=C0[4],Dead4=Dead0[4],cumInci4=cumInci0[4]
+        )
+
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma,N=N)    
+```
+*Plots*
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+COVID.sim=ode(y=state,times=times,func=COVID,parms=parameters)
+I1 = rowSums(COVID.sim[,c('A1','M1')])
+I2 = rowSums(COVID.sim[,c('A2','M2')])
+I3 = rowSums(COVID.sim[,c('A3','M3')])
+I4 = rowSums(COVID.sim[,c('A4','M4')])
+COVID.sim = cbind(COVID.sim, I1, I2, I3, I4)
+S = rowSums(COVID.sim[,c('S1','S2','S3','S4')])
+E = rowSums(COVID.sim[,c('E1','E2','E3','E4')])
+A = rowSums(COVID.sim[,c('A1','A2','A3','A4')])
+M = rowSums(COVID.sim[,c('M1','M2','M3','M4')])
+R = rowSums(COVID.sim[,c('R1','R2','R3','R4')])
+C = rowSums(COVID.sim[,c('C1','C2','C3','C4')])
+H = rowSums(COVID.sim[,c('H1','H2','H3','H4')])
+allI= rowSums(COVID.sim[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci = (COVID.sim[,'cumInci1']+COVID.sim[,'cumInci2']+COVID.sim[,'cumInci3']+COVID.sim[,'cumInci4'])
+dead = (COVID.sim[,'Dead1']+COVID.sim[,'Dead2']+COVID.sim[,'Dead3']+COVID.sim[,'Dead4'])
+all.sim = cbind(S,E,A,M,R,C,H,allI,cuminci,COVID.sim[,'time'],dead)
+inci=all.sim[seq(7,nrow(all.sim),by=7),'cuminci']-c(0,all.sim[seq(7,nrow(all.sim)-7,by=7),'cuminci']) #weekly incidence
+dead1=all.sim[seq(7,nrow(all.sim),by=7),'dead']-c(0,all.sim[seq(7,nrow(all.sim)-7,by=7),'dead']) #weekly deaths
+#plot
+plot(inci,ylaxb='Weekly incidence',xlab='Week',type='l',lwd=1.5, main= "Weekly Incidence Over 1 Year",col='red')
+plot(all.sim[,'cuminci'],ylab='Weekly Incidence',xlab='Days',type='l',lwd=1.5, main="Cumulative Incidence Over 1 Year",col='blue')
+matplot(COVID.sim[,'time'], COVID.sim[,c('S1','S2','S3','S4')],type='l', 
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Susceptibility Over 2 Years with Age Structured Model', cex.main=1,
+        ylab='Number of People',xlab='Time (days)')
+legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
+matplot(COVID.sim[,'time'], COVID.sim[,c('A1','A2','A3','A4')],type='l', 
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Asymptomatic Incidence Over 1 Year by Age', cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
+matplot(COVID.sim[,'time'], COVID.sim[,c('M1','M2','M3','M4')],type='l', 
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Mild Infection Over 1 Year with Age Structure Model', cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
+matplot(COVID.sim[,'time'], COVID.sim[,c('I1', 'I2','I3','I4')],type='l', 
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main=' Incidence Over 1 Year by Age',cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
+matplot(COVID.sim[,'time'], COVID.sim[,c('Dead1', 'Dead2','Dead3','Dead4')],type='l', 
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main=' Death Over 1 Year by Age',cex.main=1, ylab='Number of People',xlab='Time (days)')
+legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
+```
+**Model with Social Distancing**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+COVID_Ctrl=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N - sum(BETA_ca[1,]*c(A1,A2,A3,A4) + BETA_cm[1,]*c(M1,M2,M3,M4))*(S1/(N*n[1])) - l1*S1;
+    dE1 = sum(BETA_ca[1,]*c(A1,A2,A3,A4) + BETA_cm[1,]*c(M1,M2,M3,M4))*(S1/(N*n[1])) - E1*alpha - l1*E1; 
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*alpha*(1-theta[1]) - (gamma*rho[1] + gamma*(1-rho[1]))*M1 - l1*M1;
+    dH1 = gamma*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA_ca[2,]*c(A1,A2,A3,A4)+ BETA_cm[2,]*c(M1,M2,M3,M4))*(S2/(N*n[2])) - l2*S2;
+    dE2 = l1*E1 + sum(BETA_ca[2,]*c(A1,A2,A3,A4) + BETA_cm[2,]*c(M1,M2,M3,M4))*(S2/(N*n[2])) - E2*alpha - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*alpha*(1-theta[2]) - (gamma*rho[2] + gamma*(1-rho[2]))*M2 - l2*M2;
+    dH2 = l1*H1 + gamma*rho[2]*M2 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[2]*H2 - l2*R2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA_ca[3,]*c(A1,A2,A3,A4)+ BETA_cm[3,]*c(M1,M2,M3,M4))*(S3/(N*n[3])) - l3*S3;
+    dE3 = l2*E2 + sum(BETA_ca[3,]*c(A1,A2,A3,A4) + BETA_cm[3,]*c(M1,M2,M3,M4))*(S3/(N*n[3])) - E3*alpha - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l2*A3;
+    dM3 = l2*M2 + E3*alpha*(1-theta[3]) - (gamma*rho[3] + gamma*(1-rho[3]))*M3 - l3*M3;
+    dH3 = l2*H2 + gamma*rho[3]*M3 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA_ca[4,]*c(A1,A2,A3,A4) + BETA_cm[4,]*c(M1,M2,M3,M4))*(S4/(N*n[4])) - mu*N;
+    dE4 = l3*E3 + sum(BETA_ca[4,]*c(A1,A2,A3,A4) + BETA_cm[4,]*c(M1,M2,M3,M4))*(S4/(N*n[4])) - E4*alpha;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4;
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - (gamma*rho[4] + gamma*(1-rho[4]))*M4;
+    dH4 = l3*H3 + gamma*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
+    
+          # return the rate of change
+    list(c(dS1, dE1, dA1, dM1, dH1, dR1, dC1, dDead1, dcumInci1, 
+           dS2, dE2, dA2, dM2, dH2, dR2, dC2, dDead2, dcumInci2, 
+           dS3, dE3, dA3, dM3, dH3, dR3, dC3, dDead3, dcumInci3, 
+           dS4, dE4, dA4, dM4, dH4, dR4, dC4, dDead4, dcumInci4
+           ))
+  })
+}
+```
+
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+times1=seq(1,4*7,by=1); 
+times2=seq(4*7,365,by=1);
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15); 
+A0=c(5,5,5,5);
+M0=c(5,5,5,5);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0-M0;
+  
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection-------Why divided by 11 13
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered------------------- why divided by 4 6
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection-----why 5 5 6 6 
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered----------------why 9, 9, 10, 10
+# Stage 1: no intervention
+COVID_noint=ode(y=state,times=times1,func=COVID,parms=parameters);
+
+# Stage 2: yes intervention
+state2=c(S1=tail(COVID_noint[,'S1'],1),
+         E1=tail(COVID_noint[,'E1'],1),
+         A1=tail(COVID_noint[,'A1'],1),
+         M1=tail(COVID_noint[,'M1'],1),
+         H1=tail(COVID_noint[,'H1'],1),
+         R1=tail(COVID_noint[,'R1'],1),
+         C1=tail(COVID_noint[,'C1'],1),
+         Dead1=tail(COVID_noint[,'Dead1'],1),
+          cumInci1=tail(COVID_noint[,'cumInci1'],1),
+         # grp 2
+         S2=tail(COVID_noint[,'S2'],1),
+         E2=tail(COVID_noint[,'E2'],1),
+         A2=tail(COVID_noint[,'A2'],1),
+         M2=tail(COVID_noint[,'M2'],1),
+         H2=tail(COVID_noint[,'H2'],1),
+         R2=tail(COVID_noint[,'R2'],1),
+         C2=tail(COVID_noint[,'C2'],1),
+         Dead2=tail(COVID_noint[,'Dead2'],1),
+          cumInci2=tail(COVID_noint[,'cumInci2'],1),
+         
+                  # grp 3
+         S3=tail(COVID_noint[,'S3'],1),
+         E3=tail(COVID_noint[,'E3'],1),
+         A3=tail(COVID_noint[,'A3'],1),
+         M3=tail(COVID_noint[,'M3'],1),
+         H3=tail(COVID_noint[,'H3'],1),
+         R3=tail(COVID_noint[,'R3'],1),
+         C3=tail(COVID_noint[,'C3'],1),
+         Dead3=tail(COVID_noint[,'Dead3'],1),
+          cumInci3=tail(COVID_noint[,'cumInci3'],1),
+         
+                  # grp 4
+         S4=tail(COVID_noint[,'S4'],1),
+         E4=tail(COVID_noint[,'E4'],1),
+         A4=tail(COVID_noint[,'A4'],1),
+         M4=tail(COVID_noint[,'M4'],1),
+         H4=tail(COVID_noint[,'H4'],1),
+         R4=tail(COVID_noint[,'R4'],1),
+         C4=tail(COVID_noint[,'C4'],1),
+         Dead4=tail(COVID_noint[,'Dead4'],1),
+          cumInci4=tail(COVID_noint[,'cumInci4'],1)
+         )
+a = 0.8
+m = 0.7
+BETA_ca = BETA*a
+BETA_cm = BETA*m
+parametersCtrl= c(BETA_ca=BETA_ca, BETA_cm = BETA_cm,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma, N=N) 
+
+COVID.Ctrl2=ode(y=state2,times=times2,func=COVID_Ctrl,parms=parametersCtrl)
+# Combine the two
+sim3=rbind(COVID_noint,COVID.Ctrl2[-1,])
+I1 = rowSums(sim3[,c('A1','M1')])
+I2 = rowSums(sim3[,c('A2','M2')])
+I3 = rowSums(sim3[,c('A3','M3')])
+I4 = rowSums(sim3[,c('A4','M4')])
+sim3 = cbind(sim3, I1, I2, I3, I4)
+S = rowSums(sim3[,c('S1','S2','S3','S4')])
+E = rowSums(sim3[,c('E1','E2','E3','E4')])
+A = rowSums(sim3[,c('A1','A2','A3','A4')])
+M = rowSums(sim3[,c('M1','M2','M3','M4')])
+R = rowSums(sim3[,c('R1','R2','R3','R4')])
+C = rowSums(sim3[,c('C1','C2','C3','C4')])
+H = rowSums(sim3[,c('H1','H2','H3','H4')])
+allI3 = rowSums(sim3[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci3 = rowSums(sim3[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead2 = rowSums(sim3[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim3 = cbind(S,E,A,M,R,C,H,allI3,cuminci3,sim3[,'time'],dead2)
+inci3=all.sim3[seq(7,nrow(all.sim3),by=7),'cuminci3']-c(0,all.sim3[seq(7,nrow(all.sim3)-7,by=7),'cuminci3']) #weekly incidences
+dead3=all.sim3[seq(7,nrow(all.sim3),by=7),'dead2']-c(0,all.sim3[seq(7,nrow(all.sim3)-7,by=7),'dead2']) #weekly incidences
+#Plots
+plot(all.sim3[,'cuminci3'],ylab='Cumulative incidence',xlab='Day',type='l',lwd=2, main="Cumulative Incidence with Social Distancing at 8 Weeks")
+plot(inci3, ylab='Weekly incidence', xlab='Week',type='l',lwd=2,main= "Weekly Incidence With and Without Social Distancing at 4 Weeks",ylim=c(0,max(inci)))
+lines(inci,ylab='Weekly incidence',xlab ='Week',col = 'red', type='l',lwd=2)
+legend('topright',c('Simulated: with social distancing', 'Simulated: no social distancing'),
+       lty=c(1,1),pch=c(NA, NA),col=c('black', 'red'),cex=.8,bty='n')
+plot(dead3, ylab='Weekly death', xlab='Week',type='l',lwd=2,main= "Weekly Deaths With and Without Social Distancing at 4 Weeks",ylim=c(0,1000))
+lines(dead1,ylab='Weekly incidence',xlab ='Week',col = 'red', type='l',lwd=2)
+legend('topright',c('Simulated: with social distancing', 'Simulated: no social distancing'),
+       lty=c(1,1),pch=c(NA, NA),col=c('black','red'),cex=.8,bty='n')
+```
+
+**Social Distancing Loop**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+as=seq(.2,.8,by=.2)
+res=matrix(0,52,length(as))
+res_dead=matrix(0,52,length(as))
+for (i in 1:length(as)){
+  times1=seq(1,4*7,by=1); # first wk weeks with out intervention
+  times2=seq(4*7,365,by=1);
+  a=as[i]; 
+  BETA_ca = BETA*(1-a)
+  BETA_cm = BETA*(1-a-0.1)
+parametersCtrl= c(BETA_ca=BETA_ca, BETA_cm = BETA_cm,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma, N=N) 
+
+#Step 1 no intervention for 3 weeks
+  COVID_noint=ode(y=state,times=times1,func=COVID,parms=parameters);
+  
+#Step 2 social distancing at 3 weeks
+  state2=c(S1=tail(COVID_noint[,'S1'],1),
+         E1=tail(COVID_noint[,'E1'],1),
+         A1=tail(COVID_noint[,'A1'],1),
+         M1=tail(COVID_noint[,'M1'],1),
+         H1=tail(COVID_noint[,'H1'],1),
+         R1=tail(COVID_noint[,'R1'],1),
+         C1=tail(COVID_noint[,'C1'],1),
+         Dead1=tail(COVID_noint[,'Dead1'],1),
+          cumInci1=tail(COVID_noint[,'cumInci1'],1),
+    # grp 2
+         S2=tail(COVID_noint[,'S2'],1),
+         E2=tail(COVID_noint[,'E2'],1),
+         A2=tail(COVID_noint[,'A2'],1),
+         M2=tail(COVID_noint[,'M2'],1),
+         H2=tail(COVID_noint[,'H2'],1),
+         R2=tail(COVID_noint[,'R2'],1),
+         C2=tail(COVID_noint[,'C2'],1),
+         Dead2=tail(COVID_noint[,'Dead2'],1),
+          cumInci2=tail(COVID_noint[,'cumInci2'],1),
+    # grp 3
+         S3=tail(COVID_noint[,'S3'],1),
+         E3=tail(COVID_noint[,'E3'],1),
+         A3=tail(COVID_noint[,'A3'],1),
+         M3=tail(COVID_noint[,'M3'],1),
+         H3=tail(COVID_noint[,'H3'],1),
+         R3=tail(COVID_noint[,'R3'],1),
+         C3=tail(COVID_noint[,'C3'],1),
+         Dead3=tail(COVID_noint[,'Dead3'],1),
+          cumInci3=tail(COVID_noint[,'cumInci3'],1),
+    # grp 4
+         S4=tail(COVID_noint[,'S4'],1),
+         E4=tail(COVID_noint[,'E4'],1),
+         A4=tail(COVID_noint[,'A4'],1),
+         M4=tail(COVID_noint[,'M4'],1),
+         H4=tail(COVID_noint[,'H4'],1),
+         R4=tail(COVID_noint[,'R4'],1),
+         C4=tail(COVID_noint[,'C4'],1),
+         Dead4=tail(COVID_noint[,'Dead4'],1),
+          cumInci4=tail(COVID_noint[,'cumInci4'],1)
+         )
+
+  COVID.Ctrl2=ode(y=state2,times=times2,func=COVID_Ctrl,parms=parametersCtrl)
+  sim3.loop=rbind(COVID_noint,COVID.Ctrl2[-1,])
+  
+  # Combine the two
+sim3=rbind(COVID_noint,COVID.Ctrl2[-1,])
+I1 = rowSums(sim3[,c('A1','M1')])
+I2 = rowSums(sim3[,c('A2','M2')])
+I3 = rowSums(sim3[,c('A3','M3')])
+I4 = rowSums(sim3[,c('A4','M4')])
+sim3 = cbind(sim3, I1, I2, I3, I4)
+S = rowSums(sim3[,c('S1','S2','S3','S4')])
+E = rowSums(sim3[,c('E1','E2','E3','E4')])
+A = rowSums(sim3[,c('A1','A2','A3','A4')])
+M = rowSums(sim3[,c('M1','M2','M3','M4')])
+R = rowSums(sim3[,c('R1','R2','R3','R4')])
+C = rowSums(sim3[,c('C1','C2','C3','C4')])
+H = rowSums(sim3[,c('H1','H2','H3','H4')])
+allI3 = rowSums(sim3[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci3 = rowSums(sim3[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead3 = rowSums(sim3[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim3 = cbind(S,E,A,M,R,C,H,allI3,cuminci3,sim3[,'time'],dead3)
+inci3=all.sim3[seq(7,nrow(all.sim3),by=7),'cuminci3']-c(0,all.sim3[seq(7,nrow(all.sim3)-7,by=7),'cuminci3']) #weekly incidences
+dead_1=all.sim3[seq(7,nrow(all.sim3),by=7),'dead3']-c(0,all.sim3[seq(7,nrow(all.sim3)-7,by=7),'dead3']) #weekly deaths
+  # save the result before exiting the loop
+  res[,i]=inci3 # get weekly incidence
+  res_dead[,i]=dead_1 # get weekly incidence
+}
+
+ymax=max(res)*1.2
+res<-cbind(res,inci)
+res_dead<-cbind(res_dead,dead1)
+matplot(res[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Incidence',main='Weekly Incidence with Social Distancing')
+legend('topright',c('a=0.2', 'a=0.4','a=0.6','a=0.8','a=1'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+matplot(res_dead[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Deaths',main='Weekly Deaths with Social Distancing')
+legend('topright',c('a=0.2', 'a=0.4','a=0.6','a=0.8','a=1'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+```
+**Social Distancing Timing Loop**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+a = 0.8
+m = 0.7
+BETA_ca = BETA*a
+BETA_cm = BETA*m
+ts=seq(2,8,by=2)
+res3=matrix(0,52,length(ts))
+res3_dead=matrix(0,52,length(ts))
+for (i in 1:length(ts)){
+  time_1=seq(1,(ts[i])*7,by=1);
+  time_2=seq((ts[i])*7,365,by=1);
+parametersCtrl= c(BETA_ca=BETA_ca, BETA_cm = BETA_cm,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma, N=N) 
+
+#Step 1 no intervention for 3 weeks
+  COVID_noint=ode(y=state,times=time_1,func=COVID,parms=parameters);
+  
+#Step 2 social distancing at 3 weeks
+  state2=c(S1=tail(COVID_noint[,'S1'],1),
+         E1=tail(COVID_noint[,'E1'],1),
+         A1=tail(COVID_noint[,'A1'],1),
+         M1=tail(COVID_noint[,'M1'],1),
+         H1=tail(COVID_noint[,'H1'],1),
+         R1=tail(COVID_noint[,'R1'],1),
+         C1=tail(COVID_noint[,'C1'],1),
+         Dead1=tail(COVID_noint[,'Dead1'],1),
+          cumInci1=tail(COVID_noint[,'cumInci1'],1),
+    # grp 2
+         S2=tail(COVID_noint[,'S2'],1),
+         E2=tail(COVID_noint[,'E2'],1),
+         A2=tail(COVID_noint[,'A2'],1),
+         M2=tail(COVID_noint[,'M2'],1),
+         H2=tail(COVID_noint[,'H2'],1),
+         R2=tail(COVID_noint[,'R2'],1),
+         C2=tail(COVID_noint[,'C2'],1),
+         Dead2=tail(COVID_noint[,'Dead2'],1),
+          cumInci2=tail(COVID_noint[,'cumInci2'],1),
+    # grp 3
+         S3=tail(COVID_noint[,'S3'],1),
+         E3=tail(COVID_noint[,'E3'],1),
+         A3=tail(COVID_noint[,'A3'],1),
+         M3=tail(COVID_noint[,'M3'],1),
+         H3=tail(COVID_noint[,'H3'],1),
+         R3=tail(COVID_noint[,'R3'],1),
+         C3=tail(COVID_noint[,'C3'],1),
+         Dead3=tail(COVID_noint[,'Dead3'],1),
+          cumInci3=tail(COVID_noint[,'cumInci3'],1),
+    # grp 4
+         S4=tail(COVID_noint[,'S4'],1),
+         E4=tail(COVID_noint[,'E4'],1),
+         A4=tail(COVID_noint[,'A4'],1),
+         M4=tail(COVID_noint[,'M4'],1),
+         H4=tail(COVID_noint[,'H4'],1),
+         R4=tail(COVID_noint[,'R4'],1),
+         C4=tail(COVID_noint[,'C4'],1),
+         Dead4=tail(COVID_noint[,'Dead4'],1),
+          cumInci4=tail(COVID_noint[,'cumInci4'],1)
+         )
+
+  COVID.Ctrl2=ode(y=state2,times=time_2,func=COVID_Ctrl,parms=parametersCtrl)
+  sim3.loop=rbind(COVID_noint,COVID.Ctrl2[-1,])
+  
+  # Combine the two
+sim3=rbind(COVID_noint,COVID.Ctrl2[-1,])
+I1 = rowSums(sim3[,c('A1','M1')])
+I2 = rowSums(sim3[,c('A2','M2')])
+I3 = rowSums(sim3[,c('A3','M3')])
+I4 = rowSums(sim3[,c('A4','M4')])
+sim3 = cbind(sim3, I1, I2, I3, I4)
+S = rowSums(sim3[,c('S1','S2','S3','S4')])
+E = rowSums(sim3[,c('E1','E2','E3','E4')])
+A = rowSums(sim3[,c('A1','A2','A3','A4')])
+M = rowSums(sim3[,c('M1','M2','M3','M4')])
+R = rowSums(sim3[,c('R1','R2','R3','R4')])
+C = rowSums(sim3[,c('C1','C2','C3','C4')])
+H = rowSums(sim3[,c('H1','H2','H3','H4')])
+allI3 = rowSums(sim3[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci3 = rowSums(sim3[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead3 = rowSums(sim3[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim3 = cbind(S,E,A,M,R,C,H,allI3,cuminci3,sim3[,'time'],dead3)
+inci3=all.sim3[seq(7,nrow(all.sim3),by=7),'cuminci3']-c(0,all.sim3[seq(7,nrow(all.sim3)-7,by=7),'cuminci3']) #weekly incidences
+dead_1=all.sim3[seq(7,nrow(all.sim3),by=7),'dead3']-c(0,all.sim3[seq(7,nrow(all.sim3)-7,by=7),'dead3']) #weekly deaths
+  # save the result before exiting the loop
+  res3[,i]=inci3 # get weekly incidence
+  res3_dead[,i]=dead_1 # get weekly incidence
+}
+
+ymax=max(res3)*1.2
+res3<-cbind(res3,inci)
+res3_dead<-cbind(res3_dead,dead1)
+matplot(res3[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Incidence',main='Weekly Incidence with Social Distancing')
+legend('topright',c('t=2','t=4','t=6','t=8','no intervention'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+matplot(res3_dead[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Deaths',main='Weekly Deaths with Social Distancing')
+legend('topright',c('t=2','t=4','t=6','t=8','no intervention'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+```
+
+**Model with Vaccination**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+library(deSolve)
+COVID_int=function(times,state,parameters){
+  with(as.list(c(state,parameters)),{
+  #age 0-15
+    dS1 = mu*N - sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(S1/(N*n[1])) - l1*S1;
+    dE1 = sum(BETA[1,]*c(A1,A2,A3,A4) + BETA[1,]*c(M1,M2,M3,M4))*(S1/(N*n[1])) - E1*alpha - l1*E1; 
+    dA1 = E1*alpha*theta[1] - gamma*A1 - l1*A1;
+    dM1 = E1*alpha*(1-theta[1]) - (gamma*rho[1] + gamma*(1-rho[1]))*M1 - l1*M1;
+    dH1 = gamma*rho[1]*M1 + kappa_c[1]*C1 - kappa_h[1]*H1 - gamma_h[1]*H1 - l1*H1;
+    dR1 = gamma*A1 + gamma*(1-rho[1])*M1 + gamma_h[1]*H1 - l1*R1;
+    dC1 = kappa_h[1]*H1 - kappa_c[1]*C1 - sigma[1]*C1 - l1*C1;
+    dDead1 = sigma[1]*C1;
+    dcumInci1 = E1*alpha;
+  #age 15-29
+    dS2 = l1*S1 - sum(BETA[2,]*c(A1,A2,A3,A4)+ BETA[2,]*c(M1,M2,M3,M4))*(S2/(N*n[2])) - l2*S2 - v*S2;
+    dE2 = l1*E1 + sum(BETA[2,]*c(A1,A2,A3,A4) + BETA[2,]*c(M1,M2,M3,M4))*(S2/(N*n[2])) - E2*alpha - l2*E2;
+    dA2 = l1*A1 + E2*alpha*theta[2] - gamma*A2 - l2*A2;
+    dM2 = l1*M1 + E2*alpha*(1-theta[2]) - (gamma*rho[2] + gamma*(1-rho[2]))*M2 - l2*M2;
+    dH2 = l1*H1 + gamma*rho[2]*M2 + kappa_c[2]*C2 - kappa_h[2]*H2 - gamma_h[2]*H2 - l2*H2;
+    dR2 = l1*R1 + gamma*A2 + gamma*(1-rho[2])*M2 + gamma_h[2]*H2 - l2*R2 + v*S2;
+    dC2 = l1*C1 + kappa_h[2]*H2 - kappa_c[2]*C2 - sigma[2]*C2 - l2*C2;
+    dDead2 = sigma[2]*C2;
+    dcumInci2 = E2*alpha;
+  #age 30-59
+    dS3 = l2*S2 - sum(BETA[3,]*c(A1,A2,A3,A4)+ BETA[3,]*c(M1,M2,M3,M4))*(S3/(N*n[3])) - l3*S3 - v*S3;
+    dE3 = l2*E2 + sum(BETA[3,]*c(A1,A2,A3,A4) + BETA[3,]*c(M1,M2,M3,M4))*(S3/(N*n[3])) - E3*alpha - l3*E3;
+    dA3 = l2*A2 + E3*alpha*theta[3] - gamma*A3 - l2*A3;
+    dM3 = l2*M2 + E3*alpha*(1-theta[3]) - (gamma*rho[3] + gamma*(1-rho[3]))*M3 - l3*M3;
+    dH3 = l2*H2 + gamma*rho[3]*M3 + kappa_c[3]*C3 - kappa_h[3]*H3 - gamma_h[3]*H3 - l3*H3;
+    dR3 = l2*R2 + gamma*A3 + gamma*(1-rho[3])*M3 + gamma_h[3]*H3 - l3*R3 + v*S3;
+    dC3 = l2*C2 + kappa_h[3]*H3 - kappa_c[3]*C3 - sigma[3]*C3 - l3*C3;
+    dDead3 = sigma[3]*C3;
+    dcumInci3 = E3*alpha;
+  #age 59+
+    dS4 = l3*S3 - sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(S4/(N*n[4])) - mu*N - v*S4;
+    dE4 = l3*E3 + sum(BETA[4,]*c(A1,A2,A3,A4) + BETA[4,]*c(M1,M2,M3,M4))*(S4/(N*n[4])) - E4*alpha;
+    dA4 = l3*A3 + E4*alpha*theta[4] - gamma*A4; 
+    dM4 = l3*M3 + E4*(alpha*(1-theta[4])) - (gamma*rho[4] + gamma*(1-rho[4]))*M4;
+    dH4 = l3*H3 + gamma*rho[4]*M4 + kappa_c[4]*C4 - kappa_h[4]*H4 - gamma_h[4]*H4;
+    dR4 = l3*R3 + gamma*A4 + gamma*(1-rho[4])*M4 + gamma_h[4]*H4 +v*S4;
+    dC4 = l3*C3 + kappa_h[4]*H4 - kappa_c[4]*C4 - sigma[4]*C4;
+    dDead4 = sigma[4]*C4;
+    dcumInci4 = E4*alpha;
+    
+          # return the rate of change
+    list(c(dS1, dE1, dA1, dM1, dH1, dR1, dC1, dDead1, dcumInci1, 
+           dS2, dE2, dA2, dM2, dH2, dR2, dC2, dDead2, dcumInci2, 
+           dS3, dE3, dA3, dM3, dH3, dR3, dC3, dDead3, dcumInci3, 
+           dS4, dE4, dA4, dM4, dH4, dR4, dC4, dDead4, dcumInci4
+           ))
+  })
+}
+
+l1 = 1/(15*365); #15 years
+l2 = 1/(30*365) #29 years
+l3 = 1/(60*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15);
+A0=c(1,1,1,1);
+M0=c(1,1,1,1);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0-M0;
+  
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered
+v=0.005 #rate of vaccination
+
+#beta matrix
+Ncontact=matrix(c(169.14,50.75,37.52,14.96,
+           50.75,75.66,49.45,25.08,
+           37.52,49.45,61.26,32.99,
+           14.96,25.08,32.99,54.23),4,4,byrow=T)/7; #--------------from contact matrix from Appendix table 2 of Wallinga, 2006                                                #------divided by 7 because this was contacts per person per week
+Nmatrix=diag(n,4,4);
+r0 = eigen(Nmatrix %*% Ncontact)$values[1]/gamma
+b = 2.5/r0*gamma
+BETA=Ncontact*b
+```
+
+**With Vaccination starting at Week 4**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+times1=seq(1,7*4,by=1); # first 9 weeks with out intervention
+times2=seq(7*4,365,by=1); # afterward with incidence
+l1 = 1/(15*365); #15 years
+l2 = 1/(29*365) #29 years
+l3 = 1/(59*365) #59 years
+N=8500000;
+n=c(0.19, 0.23, 0.43, 0.15); # ---------- The article used 0.39, 0.28, 0.28, 0.5, should we use these too? 
+A0=c(1,1,1,1);
+M0=c(1,1,1,1);
+E0=H0=cumInci0=C0=R0=Dead0=rep(0,4);
+S0=N*n-A0-M0;
+  
+alpha = 1/3.69 #latent period
+gamma = 1/3.47 #infectious period
+rho = c(0.03,0.06,0.09,0.12) #proportion progressing to severe infection
+mu = 1/(78.7*365) #birth/death rate = 1/life expectancy in days
+theta = c(0.95,0.9,0.85,0.8) #proportion asymptomatic
+kappa_h = c(0.1/11,0.13/11,0.16/13,0.19/13) #proportion of severe to critical infection-------Why divided by 11 13
+gamma_h = c(0.9/4,0.87/4,0.84/6,0.81/6) #proportion of severe to recovered------------------- why divided by 4 6
+kappa_c = c(0.35/5,0.25/5,0.15/6,0.05/6) #proportion of critical back to severe infection-----why 5 5 6 6 
+sigma = c(0.65/9,0.75/9,0.85/10,0.95/10) #proportion of critical  to recovered----------------why 9, 9, 10, 10
+# Stage 1: no intervention
+state=c(S1=S0[1], E1=E0[1], A1=A0[1], M1=A0[1], H1=A0[1], R1=R0[1], C1=C0[1],Dead1=Dead0[1],cumInci1=cumInci0[1],
+        S2=S0[2], E2=E0[2], A2=A0[2], M2=A0[2], H2=A0[2], R2=R0[2], C2=C0[2],Dead2=Dead0[2],cumInci2=cumInci0[2],
+        S3=S0[3], E3=E0[3], A3=A0[3], M3=A0[3], H3=A0[3], R3=R0[3], C3=C0[3],Dead3=Dead0[3],cumInci3=cumInci0[3],
+        S4=S0[4], E4=E0[4], A4=A0[4], M4=A0[4], H4=A0[4], R4=R0[4], C4=C0[4],Dead4=Dead0[4],cumInci4=cumInci0[4]
+        )
+parameters=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma_h=gamma_h,kappa_c=kappa_c,
+             sigma=sigma,N=N)    
+
+COVID_noint=ode(y=state,times=times1,func=COVID,parms=parameters)
+
+# Stage 2: yes intervention
+state2=c(S1=tail(COVID_noint[,'S1'],1),
+         E1=tail(COVID_noint[,'E1'],1),
+         A1=tail(COVID_noint[,'A1'],1),
+         M1=tail(COVID_noint[,'M1'],1),
+         H1=tail(COVID_noint[,'H1'],1),
+         R1=tail(COVID_noint[,'R1'],1),
+         C1=tail(COVID_noint[,'C1'],1),
+         Dead1=tail(COVID_noint[,'Dead1'],1),
+          cumInci1=tail(COVID_noint[,'cumInci1'],1),
+         # grp 2
+         S2=tail(COVID_noint[,'S2'],1),
+         E2=tail(COVID_noint[,'E2'],1),
+         A2=tail(COVID_noint[,'A2'],1),
+         M2=tail(COVID_noint[,'M2'],1),
+         H2=tail(COVID_noint[,'H2'],1),
+         R2=tail(COVID_noint[,'R2'],1),
+         C2=tail(COVID_noint[,'C2'],1),
+         Dead2=tail(COVID_noint[,'Dead2'],1),
+          cumInci2=tail(COVID_noint[,'cumInci2'],1),
+         
+                  # grp 3
+         S3=tail(COVID_noint[,'S3'],1),
+         E3=tail(COVID_noint[,'E3'],1),
+         A3=tail(COVID_noint[,'A3'],1),
+         M3=tail(COVID_noint[,'M3'],1),
+         H3=tail(COVID_noint[,'H3'],1),
+         R3=tail(COVID_noint[,'R3'],1),
+         C3=tail(COVID_noint[,'C3'],1),
+         Dead3=tail(COVID_noint[,'Dead3'],1),
+          cumInci3=tail(COVID_noint[,'cumInci3'],1),
+         
+                  # grp 4
+         S4=tail(COVID_noint[,'S4'],1),
+         E4=tail(COVID_noint[,'E4'],1),
+         A4=tail(COVID_noint[,'A4'],1),
+         M4=tail(COVID_noint[,'M4'],1),
+         H4=tail(COVID_noint[,'H4'],1),
+         R4=tail(COVID_noint[,'R4'],1),
+         C4=tail(COVID_noint[,'C4'],1),
+         Dead4=tail(COVID_noint[,'Dead4'],1),
+          cumInci4=tail(COVID_noint[,'cumInci4'],1)
+         )
+
+parametersCtrl2=c(BETA=BETA,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h,gamma=gamma, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma,N=N,v=v) 
+
+COVID.Ctrl=ode(y=state2,times=times2,func=COVID_int,parms=parametersCtrl2)
+
+# Combine the two
+sim2=rbind(COVID_noint,COVID.Ctrl[-1,])
+I1 = rowSums(sim2[,c('A1','M1')])
+I2 = rowSums(sim2[,c('A2','M2')])
+I3 = rowSums(sim2[,c('A3','M3')])
+I4 = rowSums(sim2[,c('A4','M4')])
+COVID.sim2 = cbind(sim2, I1, I2, I3, I4)
+S = rowSums(sim2[,c('S1','S2','S3','S4')])
+E = rowSums(sim2[,c('E1','E2','E3','E4')])
+A = rowSums(sim2[,c('A1','A2','A3','A4')])
+M = rowSums(sim2[,c('M1','M2','M3','M4')])
+R = rowSums(sim2[,c('R1','R2','R3','R4')])
+C = rowSums(sim2[,c('C1','C2','C3','C4')])
+H = rowSums(sim2[,c('H1','H2','H3','H4')])
+allI2= rowSums(sim2[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci2 = rowSums(sim2[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead2 = rowSums(sim2[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim2 = cbind(S,E,A,M,R,C,H,allI2,cuminci2,sim2[,'time'],dead2)
+inci2=all.sim2[seq(7,nrow(all.sim2),by=7),'cuminci2']-c(0,all.sim2[seq(7,nrow(all.sim2)-7,by=7),'cuminci2']) #weekly incidences
+#Plots
+plot(all.sim2[,'cuminci2'],ylab='Cumulative incidence',xlab='Day',type='l',lwd=1.5, main="Cumulative Incidence with Vaccination at 4 Weeks")
+plot(inci2, ylab='Weekly Incidence',xlab='Week',type='l',lwd=2, main= "Weekly Incidence With and Without Vaccination at 4 Weeks",ylim=c(0,max(inci)))
+lines(inci,ylab='Weekly incidence',xlab ='Week',col = 'red', type='l',lwd=1.5)
+legend('topright',c('Simulated: with vaccination', 'Simulated: no vaccination'),lty=c(1,1),pch=c(NA, NA),col=c('black', 'red'),cex=.8,bty='n')
+```
+
+**Vaccination Loop**
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+vs=seq(.005,.2,by=.0050)
+res1=matrix(0,52,length(vs))
+res1_dead=matrix(0,52,length(vs))
+for (i in 1:length(vs)){
+  times1=seq(1,4*7,by=1); # first wk weeks with out intervention
+  times2=seq(4*7,365,by=1);
+  v=vs[i]; 
+parametersCtrl= c(BETA_ca=BETA_ca, BETA_cm = BETA_cm,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma, N=N) 
+
+#Step 1 no intervention for 3 weeks
+  COVID_noint=ode(y=state,times=times1,func=COVID,parms=parameters);
+  
+#Step 2 social distancing at 3 weeks
+  state2=c(S1=tail(COVID_noint[,'S1'],1),
+         E1=tail(COVID_noint[,'E1'],1),
+         A1=tail(COVID_noint[,'A1'],1),
+         M1=tail(COVID_noint[,'M1'],1),
+         H1=tail(COVID_noint[,'H1'],1),
+         R1=tail(COVID_noint[,'R1'],1),
+         C1=tail(COVID_noint[,'C1'],1),
+         Dead1=tail(COVID_noint[,'Dead1'],1),
+          cumInci1=tail(COVID_noint[,'cumInci1'],1),
+    # grp 2
+         S2=tail(COVID_noint[,'S2'],1),
+         E2=tail(COVID_noint[,'E2'],1),
+         A2=tail(COVID_noint[,'A2'],1),
+         M2=tail(COVID_noint[,'M2'],1),
+         H2=tail(COVID_noint[,'H2'],1),
+         R2=tail(COVID_noint[,'R2'],1),
+         C2=tail(COVID_noint[,'C2'],1),
+         Dead2=tail(COVID_noint[,'Dead2'],1),
+          cumInci2=tail(COVID_noint[,'cumInci2'],1),
+    # grp 3
+         S3=tail(COVID_noint[,'S3'],1),
+         E3=tail(COVID_noint[,'E3'],1),
+         A3=tail(COVID_noint[,'A3'],1),
+         M3=tail(COVID_noint[,'M3'],1),
+         H3=tail(COVID_noint[,'H3'],1),
+         R3=tail(COVID_noint[,'R3'],1),
+         C3=tail(COVID_noint[,'C3'],1),
+         Dead3=tail(COVID_noint[,'Dead3'],1),
+          cumInci3=tail(COVID_noint[,'cumInci3'],1),
+    # grp 4
+         S4=tail(COVID_noint[,'S4'],1),
+         E4=tail(COVID_noint[,'E4'],1),
+         A4=tail(COVID_noint[,'A4'],1),
+         M4=tail(COVID_noint[,'M4'],1),
+         H4=tail(COVID_noint[,'H4'],1),
+         R4=tail(COVID_noint[,'R4'],1),
+         C4=tail(COVID_noint[,'C4'],1),
+         Dead4=tail(COVID_noint[,'Dead4'],1),
+          cumInci4=tail(COVID_noint[,'cumInci4'],1)
+         )
+
+  COVID.Ctrl=ode(y=state2,times=times2,func=COVID_int,parms=parametersCtrl)
+  sim3.loop=rbind(COVID_noint,COVID.Ctrl[-1,])
+  
+  # Combine the two
+sim2=rbind(COVID_noint,COVID.Ctrl[-1,])
+I1 = rowSums(sim2[,c('A1','M1')])
+I2 = rowSums(sim2[,c('A2','M2')])
+I3 = rowSums(sim2[,c('A3','M3')])
+I4 = rowSums(sim2[,c('A4','M4')])
+sim3 = cbind(sim2, I1, I2, I3, I4)
+S = rowSums(sim2[,c('S1','S2','S3','S4')])
+E = rowSums(sim2[,c('E1','E2','E3','E4')])
+A = rowSums(sim2[,c('A1','A2','A3','A4')])
+M = rowSums(sim2[,c('M1','M2','M3','M4')])
+R = rowSums(sim2[,c('R1','R2','R3','R4')])
+C = rowSums(sim2[,c('C1','C2','C3','C4')])
+H = rowSums(sim2[,c('H1','H2','H3','H4')])
+allI2 = rowSums(sim2[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci2 = rowSums(sim2[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead2 = rowSums(sim3[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim2 = cbind(S,E,A,M,R,C,H,allI2,cuminci2,sim2[,'time'],dead2)
+inci2=all.sim2[seq(7,nrow(all.sim2),by=7),'cuminci2']-c(0,all.sim2[seq(7,nrow(all.sim2)-7,by=7),'cuminci2']) #weekly incidences
+dead_2=all.sim2[seq(7,nrow(all.sim2),by=7),'dead2']-c(0,all.sim2[seq(7,nrow(all.sim2)-7,by=7),'dead2']) #weekly deaths
+  # save the result before exiting the loop
+  res1[,i]=inci2 # get weekly incidence
+  res1_dead[,i]=dead_2 # get weekly incidence
+}
+
+ymax=max(res1)*1.2
+res1<-cbind(res1,inci)
+res_dead<-cbind(res1_dead,dead1)
+matplot(res1[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Incidence',main='Weekly Incidence with Vaccination')
+legend('topright',c('v=0','v=0.005','v=0.01','v=0.015','v=0.02'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+matplot(res1_dead[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Deaths',main='Weekly Deaths with Vaccination')
+legend('topright',c('v=0','v=0.005','v=0.01','v=0.015','v=0.02'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+```
+**Timing Vaccination Loop** 
+```{r message = FALSE, echo = TRUE, tidy = TRUE, warning = FALSE}
+v=0.01
+ts=seq(2,8,by=1)
+res2=matrix(0,52,length(ts))
+res2_dead=matrix(0,52,length(ts))
+for (i in 1:length(ts)){
+  time_1=seq(1,(ts[i])*7,by=1);
+  time_2=seq((ts[i])*7,365,by=1);
+parametersCtrl= c(BETA_ca=BETA_ca, BETA_cm = BETA_cm,mu=mu,gamma=gamma,alpha=alpha,rho=rho,theta=theta,kappa_h=kappa_h, gamma_h=gamma_h,kappa_c=kappa_c,sigma=sigma, N=N) 
+
+#Step 1 no intervention for 3 weeks
+  COVID_noint=ode(y=state,times=time_1,func=COVID,parms=parameters);
+  
+#Step 2 social distancing at 3 weeks
+  state2=c(S1=tail(COVID_noint[,'S1'],1),
+         E1=tail(COVID_noint[,'E1'],1),
+         A1=tail(COVID_noint[,'A1'],1),
+         M1=tail(COVID_noint[,'M1'],1),
+         H1=tail(COVID_noint[,'H1'],1),
+         R1=tail(COVID_noint[,'R1'],1),
+         C1=tail(COVID_noint[,'C1'],1),
+         Dead1=tail(COVID_noint[,'Dead1'],1),
+          cumInci1=tail(COVID_noint[,'cumInci1'],1),
+    # grp 2
+         S2=tail(COVID_noint[,'S2'],1),
+         E2=tail(COVID_noint[,'E2'],1),
+         A2=tail(COVID_noint[,'A2'],1),
+         M2=tail(COVID_noint[,'M2'],1),
+         H2=tail(COVID_noint[,'H2'],1),
+         R2=tail(COVID_noint[,'R2'],1),
+         C2=tail(COVID_noint[,'C2'],1),
+         Dead2=tail(COVID_noint[,'Dead2'],1),
+          cumInci2=tail(COVID_noint[,'cumInci2'],1),
+    # grp 3
+         S3=tail(COVID_noint[,'S3'],1),
+         E3=tail(COVID_noint[,'E3'],1),
+         A3=tail(COVID_noint[,'A3'],1),
+         M3=tail(COVID_noint[,'M3'],1),
+         H3=tail(COVID_noint[,'H3'],1),
+         R3=tail(COVID_noint[,'R3'],1),
+         C3=tail(COVID_noint[,'C3'],1),
+         Dead3=tail(COVID_noint[,'Dead3'],1),
+          cumInci3=tail(COVID_noint[,'cumInci3'],1),
+    # grp 4
+         S4=tail(COVID_noint[,'S4'],1),
+         E4=tail(COVID_noint[,'E4'],1),
+         A4=tail(COVID_noint[,'A4'],1),
+         M4=tail(COVID_noint[,'M4'],1),
+         H4=tail(COVID_noint[,'H4'],1),
+         R4=tail(COVID_noint[,'R4'],1),
+         C4=tail(COVID_noint[,'C4'],1),
+         Dead4=tail(COVID_noint[,'Dead4'],1),
+          cumInci4=tail(COVID_noint[,'cumInci4'],1)
+         )
+
+  COVID.Ctrl=ode(y=state2,times=time_2,func=COVID_int,parms=parametersCtrl)
+  sim3.loop=rbind(COVID_noint,COVID.Ctrl[-1,])
+  
+  # Combine the two
+sim2=rbind(COVID_noint,COVID.Ctrl[-1,])
+I1 = rowSums(sim2[,c('A1','M1')])
+I2 = rowSums(sim2[,c('A2','M2')])
+I3 = rowSums(sim2[,c('A3','M3')])
+I4 = rowSums(sim2[,c('A4','M4')])
+sim3 = cbind(sim2, I1, I2, I3, I4)
+S = rowSums(sim2[,c('S1','S2','S3','S4')])
+E = rowSums(sim2[,c('E1','E2','E3','E4')])
+A = rowSums(sim2[,c('A1','A2','A3','A4')])
+M = rowSums(sim2[,c('M1','M2','M3','M4')])
+R = rowSums(sim2[,c('R1','R2','R3','R4')])
+C = rowSums(sim2[,c('C1','C2','C3','C4')])
+H = rowSums(sim2[,c('H1','H2','H3','H4')])
+allI2 = rowSums(sim2[,c('M1','M2','M3','M4','A1','A2','A3','A4')])
+cuminci2 = rowSums(sim2[,c('cumInci1','cumInci2','cumInci3','cumInci4')])
+dead2 = rowSums(sim3[,c('Dead1','Dead2','Dead3','Dead4')])
+all.sim2 = cbind(S,E,A,M,R,C,H,allI2,cuminci2,sim2[,'time'],dead2)
+inci2=all.sim2[seq(7,nrow(all.sim2),by=7),'cuminci2']-c(0,all.sim2[seq(7,nrow(all.sim2)-7,by=7),'cuminci2']) #weekly incidences
+dead_2=all.sim2[seq(7,nrow(all.sim2),by=7),'dead2']-c(0,all.sim2[seq(7,nrow(all.sim2)-7,by=7),'dead2']) #weekly deaths
+  # save the result before exiting the loop
+  res2[,i]=inci2 # get weekly incidence
+  res2_dead[,i]=dead_2 # get weekly incidence
+}
+
+ymax=max(res2)*1.2
+res2<-cbind(res2,inci)
+res2_dead<-cbind(res2_dead,dead1)
+matplot(res2[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Incidence',main='Weekly Incidence with Vaccination')
+legend('topright',c('t=2','t=4','t=6','t=8','no vaccines'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+matplot(res2_dead[,c(1,2,3,4,5)],type='l',lty=1, alpha = 1, lwd=1.5,col=c('red','orange','green','blue','purple'),xlab='Weeks',ylab='Weekly Deaths',main='Weekly Deaths with Vaccination')
+legend('topright',c('t=2','t=4','t=6','t=8','no vaccines'),lty=c(1,1),pch=c(NA,NA),col=c('red','orange','green','blue','purple'),cex=.8,bty='n')
+```
+
+**Doubling Time**
+```{r}
+log(2)*(1/gamma*7)/1.5
+
+
+```
