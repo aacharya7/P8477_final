@@ -121,16 +121,15 @@ inci=all.sim[seq(7,nrow(all.sim),by=7),'cuminci']-c(0,all.sim[seq(7,nrow(all.sim
 dead1=all.sim[seq(7,nrow(all.sim),by=7),'dead']-c(0,all.sim[seq(7,nrow(all.sim)-7,by=7),'dead']) #weekly deaths
 #plot
 plot(inci,ylaxb='Weekly incidence',xlab='Week',type='l',lwd=1.5, main= "Weekly Incidence Over 1 Year",col='red')
-plot(all.sim[,'cuminci'],ylab='Weekly Incidence',xlab='Days',type='l',lwd=1.5, main="Cumulative Incidence Over 1 Year",col='blue')
+plot(all.sim[,'cuminci'],ylab='Number of People',xlab='Days',type='l',lwd=1.5, main="Cumulative Incidence Over 1 Year",col='blue')
 matplot(COVID.sim[,'time'], COVID.sim[,c('S1','S2','S3','S4')],type='l', 
-        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Susceptibility Over 2 Years with Age Structured Model', cex.main=1,
-        ylab='Number of People',xlab='Time (days)')
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Susceptibility Over 2 Years with Age Structured Model', cex.main=1, ylab='Number of People',xlab='Time (days)')
 legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
 matplot(COVID.sim[,'time'], COVID.sim[,c('A1','A2','A3','A4')],type='l', 
         lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Asymptomatic Incidence Over 1 Year by Age', cex.main=1, ylab='Number of People',xlab='Time (days)')
 legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
-matplot(COVID.sim[,'time'], COVID.sim[,c('M1','M2','M3','M4')],type='l', 
-        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Mild Infection Over 1 Year with Age Structure Model', cex.main=1, ylab='Number of People',xlab='Time (days)')
+matplot(COVID.sim[,'time'], COVID.sim[,c('C1','C2','C3','C4')],type='l', 
+        lwd=1.5,col=c('blue','red','green','purple'),lty=1, main='Critical Infection Over 1 Year with Age Structure Model', cex.main=1, ylab='Number of People',xlab='Time (days)')
 legend('topright',c('0-15', '16-29','30-59','60+'),lty=c(1,1),pch=c(NA, NA),col=c('blue','red','green','purple'),cex=.8,bty='n')
 matplot(COVID.sim[,'time'], COVID.sim[,c('I1', 'I2','I3','I4')],type='l', 
         lwd=1.5,col=c('blue','red','green','purple'),lty=1, main=' Incidence Over 1 Year by Age',cex.main=1, ylab='Number of People',xlab='Time (days)')
@@ -874,6 +873,4 @@ legend('topright',c('t=2','t=4','t=6','t=8','no vaccines'),lty=c(1,1),pch=c(NA,N
 **Doubling Time**
 ```{r}
 log(2)*(1/gamma*7)/1.5
-
-
 ```
